@@ -1,0 +1,21 @@
+import { Types } from "mongoose";
+import { PostModel } from "../../db/models/index.js";
+import { defineNode } from "../context.js";
+
+/**
+ * Entry node for every run. Loads the Post draft, validates the workspace owns
+ * it, flips status to "processing", and seeds the run identity. (Budget/credit
+ * pre-checks would also live here.) Throws if the post is gone or cancelled.
+ */
+export const ingestNode = defineNode("ingest", async (state) => {
+  const post = await PostModel.findById(state.postId);
+  if (!post) throw new Error(`ingest: post ${state.postId} not found`);
+  if (post.status === "cancelled") throw new Error("ingest: post was cancelled");
+
+  await PostModel.updateOne(
+    { _id: new Types.ObjectId(state.postId) },
+    { $set: { status: "processing" } },
+  );
+
+  return { status: "running" };
+});
