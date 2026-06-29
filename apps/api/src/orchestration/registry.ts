@@ -1,3 +1,20 @@
+/**
+ * FILE: registry.ts
+ * The single plug-in point for adding new workflow types.
+ *
+ * Maps every WorkflowType to a node ID and its handler function.
+ * The graph's router reads this registry to decide which subgraph to run after ingest.
+ *
+ * Current workflows:
+ *  - passthrough     — use an image the user already uploaded (no AI cost)
+ *  - ai_generate     — generate a new image from a prompt using DALL·E
+ *  - ai_enhance      — edit/modify an existing image using DALL·E
+ *  - stock_discovery — search Pexels/Unsplash for a matching stock photo
+ *  - scrape          — extract the best image from a web page URL
+ *
+ * To add a 6th workflow: add one entry here and a matching literal to the shared WORKFLOWS enum.
+ * graph.ts, optimization, caption, publish, and persist nodes require zero changes.
+ */
 import type { WorkflowType } from "@visora/shared";
 import { passthroughNode } from "./subgraphs/passthrough.node.js";
 import { generationNode } from "./subgraphs/generation.node.js";

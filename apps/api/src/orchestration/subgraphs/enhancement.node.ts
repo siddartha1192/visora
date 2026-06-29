@@ -1,3 +1,10 @@
+/**
+ * FILE: enhancement.node.ts
+ * Workflow 3 — modifies an existing uploaded image using AI.
+ * The user provides an image + written instructions (e.g. "make the sky purple").
+ * This node fetches the original image bytes from S3, sends them to DALL·E's edit
+ * endpoint with the instructions, then stores the modified result as a new "enhanced" asset.
+ */
 import { Types } from "mongoose";
 import { AssetModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";

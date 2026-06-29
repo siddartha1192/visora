@@ -1,3 +1,10 @@
+/**
+ * FILE: publish.node.ts
+ * Step 5 of the pipeline — posts the content to every target social platform.
+ * Runs all platforms in parallel. If one platform fails, the others still succeed —
+ * failures are captured per-platform so the whole post isn't marked failed because of one network.
+ * Only runs on instant posts; scheduled posts skip straight to persist.
+ */
 import { defineNode } from "../context.js";
 
 /**

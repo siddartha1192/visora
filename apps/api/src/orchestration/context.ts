@@ -1,3 +1,18 @@
+/**
+ * FILE: context.ts
+ * Two responsibilities:
+ *
+ * 1. NodeContext / getContext — injects the services container into every node via
+ *    LangGraph's `configurable` object. Nodes never import adapters directly; they
+ *    receive services through this context, keeping them pure and testable.
+ *
+ * 2. defineNode — a wrapper that adds automatic observability to every node.
+ *    Any node wrapped with defineNode gets:
+ *      - An AgentLog entry written to the database on start, success, and failure
+ *      - Timing (duration in ms) and provider usage recorded automatically
+ *      - Errors logged and re-thrown so the job queue can retry
+ *    Node authors only write business logic — logging is handled here uniformly.
+ */
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import type { AgentNode } from "@visora/shared";
 import { Types } from "mongoose";

@@ -1,3 +1,14 @@
+/**
+ * FILE: asset-helper.ts
+ * Shared utility used by multiple workflow subgraphs (generation, enhancement, stock, scraping).
+ *
+ * storeImageAsset() does two things in one call:
+ *  1. Uploads raw image bytes to S3 (object store) under a unique key
+ *  2. Creates an Asset document in the database recording where it lives and how it was made
+ *
+ * Returns a StoredAssetRef (used by the graph state) and a signed URL
+ * that the optimization node hands to Cloudinary for resizing.
+ */
 import type { AssetKind, AssetSource, StoredAssetRef } from "@visora/shared";
 import { Types } from "mongoose";
 import { ulid } from "ulid";

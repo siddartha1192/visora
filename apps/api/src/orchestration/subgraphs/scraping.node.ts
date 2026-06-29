@@ -1,3 +1,11 @@
+/**
+ * FILE: scraping.node.ts
+ * Workflow 5 — extracts the best image from a web page URL using a headless browser.
+ * Mini-pipeline inside this node:
+ *  1. Playwright renders the page and extracts all <img> and og:image candidates
+ *  2. GPT picks the most contextually relevant image from the list (falls back to largest)
+ *  3. Downloads the chosen image and stores to S3 + Asset database record
+ */
 import { defineNode } from "../context.js";
 import { fetchImage } from "../../lib/fetch-image.js";
 import { storeImageAsset } from "../asset-helper.js";

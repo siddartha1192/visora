@@ -1,3 +1,12 @@
+/**
+ * FILE: generation.node.ts
+ * Workflow 2 — generates a brand-new image from a text prompt using DALL·E.
+ * Mini-pipeline inside this node:
+ *  1. GPT refines the user's raw prompt into a more vivid image-generation prompt (best-effort)
+ *  2. DALL·E generates the image
+ *  3. Result is stored to S3 + recorded as an Asset in the database
+ * Falls back to the original prompt if the GPT refinement step fails.
+ */
 import { defineNode } from "../context.js";
 import { storeImageAsset } from "../asset-helper.js";
 

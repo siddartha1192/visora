@@ -56,6 +56,15 @@ export async function getAsset(
   return toAssetDTO(asset, await services.objectStore.signedUrl(asset.s3.key));
 }
 
+/**
+ * Converts a raw MongoDB AssetDoc into the AssetDTO shape expected by the
+ * frontend. Handles three things:
+ *  1. ObjectId → string conversion (MongoDB IDs are objects, not strings)
+ *  2. Null-safety — fills missing optional fields with undefined/"" so the
+ *     frontend always receives a consistent shape
+ *  3. Attaches the pre-signed S3 URL so the browser can display the image
+ *     directly without going through the API again
+ */
 function toAssetDTO(asset: AssetDoc, url: string): AssetDTO {
   return {
     id: asset._id.toString(),

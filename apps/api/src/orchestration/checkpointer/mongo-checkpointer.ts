@@ -1,3 +1,15 @@
+/**
+ * FILE: mongo-checkpointer.ts
+ * Provides crash-recovery for the pipeline by saving state to MongoDB after each node completes.
+ *
+ * How it works:
+ *  - Each run is identified by a thread_id (= jobId)
+ *  - If the worker crashes mid-run, the next retry resumes from the last saved node
+ *    instead of re-running (and re-charging) earlier provider calls like DALL·E or Cloudinary
+ *
+ * Degrades gracefully: if the checkpoint package isn't installed, returns undefined
+ * and the pipeline runs normally — just without the ability to resume after a crash.
+ */
 import mongoose from "mongoose";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 import { logger } from "../../lib/logger.js";

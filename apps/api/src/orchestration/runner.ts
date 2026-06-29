@@ -1,3 +1,13 @@
+/**
+ * FILE: runner.ts
+ * The entry point called by the BullMQ background job worker to execute the pipeline.
+ *
+ * Responsibilities:
+ *  - Compiles the graph once per process and reuses it for all subsequent runs (singleton)
+ *  - Converts a PostDoc database document into the initial GraphState the pipeline expects
+ *  - Injects the services container via `configurable` so nodes never import providers directly
+ *  - Ties each run to a `thread_id` (= jobId) so the checkpointer can resume a crashed run
+ */
 import type { PostDoc } from "../db/models/index.js";
 import { createContainer, type ServiceContainer } from "../config/container.js";
 import { logger } from "../lib/logger.js";

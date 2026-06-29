@@ -1,3 +1,12 @@
+/**
+ * FILE: stock.node.ts
+ * Workflow 4 — finds a relevant stock photo from Pexels or Unsplash.
+ * Mini-pipeline inside this node:
+ *  1. GPT extracts 3–6 search keywords from the user's prompt (falls back to naive word split)
+ *  2. Searches stock providers in order until results are found (Pexels → Unsplash → stub)
+ *  3. Picks the largest image as the best candidate
+ *  4. Downloads it and stores to S3 + Asset database record
+ */
 import type { AssetCandidate } from "@visora/shared";
 import { defineNode } from "../context.js";
 import { fetchImage } from "../../lib/fetch-image.js";

@@ -1,3 +1,9 @@
+/**
+ * FILE: ingest.node.ts
+ * Step 1 of the pipeline — the gate check that every post must pass before anything runs.
+ * Loads the post from the database, rejects cancelled posts, and flips status to "processing".
+ * Budget/credit pre-checks would also live here in the future.
+ */
 import { Types } from "mongoose";
 import { PostModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";

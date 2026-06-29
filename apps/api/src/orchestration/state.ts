@@ -1,3 +1,16 @@
+/**
+ * FILE: state.ts
+ * Defines the shared state (the "baton") that flows through every node in the pipeline.
+ *
+ * Each node receives the full state, does its work, and returns only the fields it changed.
+ * LangGraph merges those partial updates back into the state automatically.
+ *
+ * Special reducers:
+ *  - `errors` and `usage` use append reducers — every node's entries accumulate into a full audit trail
+ *  - `published` appends per-platform publish results
+ *  - `seq` keeps the highest sequence number seen (for log ordering)
+ *  - `status` is always overwritten by the latest node
+ */
 import { Annotation } from "@langchain/langgraph";
 import type {
   AssetCandidate,

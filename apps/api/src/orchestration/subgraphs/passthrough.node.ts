@@ -1,3 +1,9 @@
+/**
+ * FILE: passthrough.node.ts
+ * Workflow 1 — the user already uploaded an image; no AI generation needed.
+ * Loads the existing asset from S3 and sets it as the primaryAssetUrl so the
+ * optimization node can proceed. Zero provider cost.
+ */
 import { Types } from "mongoose";
 import { AssetModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";

@@ -1,3 +1,19 @@
+/**
+ * FILE: graph.ts
+ * Assembles the full post-processing pipeline as a LangGraph StateGraph.
+ * This is the blueprint that wires every node together in the correct order.
+ *
+ * Pipeline flow:
+ *   START → ingest → [workflow subgraph] → optimization → caption
+ *         → (instant) publish → persist → END
+ *         → (scheduled) persist → END
+ *
+ * Two decision forks:
+ *  - ROUTER (after ingest): picks which workflow subgraph to run based on post type
+ *  - SCHEDULE GATE (after caption): publishes immediately or stops at "ready" for later
+ *
+ * Adding a new workflow only requires adding it to registry.ts — nothing changes here.
+ */
 import { END, START, StateGraph } from "@langchain/langgraph";
 import type { ServiceContainer } from "../config/container.js";
 import { GraphState, type GraphStateType } from "./state.js";
@@ -20,7 +36,7 @@ import { createCheckpointer } from "./checkpointer/mongo-checkpointer.js";
  * is a conditional edge keyed on `state.scheduleMode`. The workflow subgraphs
  * are registered from WORKFLOW_REGISTRY so new workflows need no edits here.
  */
-export async function buildGraph(services: ServiceContainer) {
+export async function buildGraph(_services: ServiceContainer) {
   const graph = new StateGraph(GraphState)
     .addNode("ingest", ingestNode)
     .addNode("optimization", optimizationNode)

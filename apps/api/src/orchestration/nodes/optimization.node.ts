@@ -1,3 +1,10 @@
+/**
+ * FILE: optimization.node.ts
+ * Step 3 of the pipeline — resizes the image for every target platform.
+ * All 5 workflows converge here; by this point primaryAssetUrl is always set
+ * regardless of how the image was produced (AI, stock, upload, scrape).
+ * Produces one platform-specific variant per unique target (e.g. Instagram 1080×1080, X 1600×900).
+ */
 import { PLATFORM_IMAGE_SPECS, type AssetVariant } from "@visora/shared";
 import { Types } from "mongoose";
 import { defineNode } from "../context.js";

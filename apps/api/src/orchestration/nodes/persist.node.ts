@@ -1,3 +1,14 @@
+/**
+ * FILE: persist.node.ts
+ * Step 6 (final) of the pipeline — saves everything to the database and sets the post's final status.
+ * Writes the platform variants onto the Asset document, then updates the Post with:
+ *  - The caption that was used
+ *  - Per-platform publish outcomes (externalPostId, permalink, status)
+ * Final status logic:
+ *  - Scheduled post (no publish step ran) → "ready"
+ *  - Instant post, at least one platform succeeded → "published"
+ *  - Instant post, all platforms failed → "failed"
+ */
 import { Types } from "mongoose";
 import { AssetModel, PostModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";

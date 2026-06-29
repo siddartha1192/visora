@@ -1,3 +1,11 @@
+/**
+ * FILE: caption.node.ts
+ * Step 4 of the pipeline — writes the caption that will appear on the social post.
+ * Three modes:
+ *  - User supplied a caption → pass it through unchanged
+ *  - User asked AI to generate one → call GPT with the prompt/instructions/context as seed
+ *  - Neither → leave caption empty
+ */
 import { defineNode } from "../context.js";
 
 /**
