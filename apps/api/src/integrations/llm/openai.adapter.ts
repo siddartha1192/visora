@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import { env } from "../../config/env.js";
 import { ProviderError } from "../../lib/errors.js";
+import { fetchImage } from "../../lib/fetch-image.js";
 import { withRetry } from "../../lib/retry.js";
 import type {
   EditImageParams,
@@ -39,14 +40,26 @@ export class OpenAIImageGenerator implements ImageGenerator {
             model: env.OPENAI_IMAGE_MODEL,
             prompt: params.prompt,
             size,
-            response_format: "b64_json",
             n: 1,
-          }),
+          } as Parameters<typeof this.client.images.generate>[0]),
         { label: "openai.images.generate" },
       );
       const first = res.data?.[0];
-      if (!first?.b64_json) throw new Error("no image returned");
-      const bytes = Buffer.from(first.b64_json, "base64");
+      if (!first) throw new Error("no image returned");
+
+      // gpt-image-1 always returns b64_json; dall-e-3 defaults to a URL.
+      let bytes: Buffer;
+      let mime = "image/png";
+      if (first.b64_json) {
+        bytes = Buffer.from(first.b64_json, "base64");
+      } else if (first.url) {
+        const fetched = await fetchImage(first.url);
+        bytes = fetched.bytes;
+        mime = fetched.mime;
+      } else {
+        throw new Error("no image data in response");
+      }
+
       const dims = parseSize(size);
       const usage: UsageMeta = {
         provider: this.name,
@@ -55,9 +68,9 @@ export class OpenAIImageGenerator implements ImageGenerator {
       };
       return {
         bytes,
-        mime: "image/png",
+        mime,
         ...dims,
-        revisedPrompt: first.revised_prompt,
+        revisedPrompt: first.revised_prompt ?? undefined,
         usage,
       };
     } catch (err) {

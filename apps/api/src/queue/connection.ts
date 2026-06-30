@@ -23,4 +23,4 @@ function parseRedisUrl(url: string): ConnectionOptions {
 
 export const connection: ConnectionOptions = parseRedisUrl(env.REDIS_URL);
 
-export const POST_QUEUE_NAME = "visora:process_post";
+export const POST_QUEUE_NAME = "visora-process-post";

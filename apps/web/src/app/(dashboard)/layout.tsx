@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
 import {
   Wand2,
   CalendarClock,
@@ -10,8 +10,10 @@ import {
   ListChecks,
   Settings,
   Sparkles,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { setToken } from "@/lib/api";
 
 const NAV = [
   { href: "/compose", label: "Compose", icon: Wand2 },
@@ -23,6 +25,19 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!localStorage.getItem("visora_token")) {
+      router.replace("/login");
+    }
+  }, [router]);
+
+  function logout() {
+    setToken(null);
+    router.replace("/login");
+  }
+
   return (
     <div className="flex min-h-screen">
       <aside className="glass sticky top-0 hidden h-screen w-64 flex-col gap-2 p-4 md:flex">
@@ -50,6 +65,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        <div className="mt-auto">
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
       </aside>
       <main className="flex-1 px-6 py-8 md:px-10">{children}</main>
     </div>

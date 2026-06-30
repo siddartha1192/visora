@@ -25,8 +25,8 @@ export default function Landing() {
           all driven by a pluggable agent graph.
         </p>
         <div className="flex items-center justify-center gap-3">
-          <Link href="/compose">
-            <Button size="lg">Open the studio</Button>
+          <Link href="/login">
+            <Button size="lg">Get started</Button>
           </Link>
           <Link href="/posts">
             <Button size="lg" variant="outline">

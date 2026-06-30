@@ -35,7 +35,7 @@ const schema = z.object({
 
   // AI / media providers
   OPENAI_API_KEY: z.string().optional(),
-  OPENAI_IMAGE_MODEL: z.string().default("dall-e-3"),
+  OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
   OPENAI_TEXT_MODEL: z.string().default("gpt-4o-mini"),
 
   CLOUDINARY_URL: z.string().optional(),

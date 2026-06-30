@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { env } from "./config/env.js";
 import { connectMongo, disconnectMongo } from "./db/connection.js";
 import { logger } from "./lib/logger.js";

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { connectMongo, disconnectMongo } from "./db/connection.js";
 import { logger } from "./lib/logger.js";
 import { startPostWorker } from "./queue/post-worker.js";

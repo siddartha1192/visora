@@ -14,7 +14,7 @@ import type {
 } from "../integrations/interfaces/ports.js";
 
 import { S3ObjectStore } from "../integrations/storage/s3.adapter.js";
-import { MemoryObjectStore } from "../integrations/storage/memory.adapter.js";
+import { LocalDiskObjectStore } from "../integrations/storage/local-disk.adapter.js";
 import {
   OpenAIImageGenerator,
   OpenAILanguageModel,
@@ -70,7 +70,7 @@ export function createContainer(): ServiceContainer {
   const objectStore: ObjectStore =
     env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
       ? new S3ObjectStore()
-      : (usingStub.push("objectStore"), new MemoryObjectStore());
+      : new LocalDiskObjectStore();
 
   const hasCloudinary =
     Boolean(env.CLOUDINARY_URL) ||

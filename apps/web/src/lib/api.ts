@@ -50,6 +50,7 @@ export const api = {
   listPosts: (page = 1) =>
     request<Paginated<PostDTO>>(`/posts?page=${page}`),
   getPost: (id: string) => request<PostDTO>(`/posts/${id}`),
+  getAsset: (id: string) => request<AssetDTO>(`/assets/${id}`),
   cancelPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/cancel`, { method: "POST" }),
   uploadAsset: (file: File) => {

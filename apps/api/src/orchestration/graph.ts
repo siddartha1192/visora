@@ -40,7 +40,7 @@ export async function buildGraph(_services: ServiceContainer) {
   const graph = new StateGraph(GraphState)
     .addNode("ingest", ingestNode)
     .addNode("optimization", optimizationNode)
-    .addNode("caption", captionNode)
+    .addNode("write_caption", captionNode)
     .addNode("publish", publishNode)
     .addNode("persist", persistNode);
 
@@ -62,11 +62,11 @@ export async function buildGraph(_services: ServiceContainer) {
     ) as never,
   );
 
-  graph.addEdge("optimization" as never, "caption" as never);
+  graph.addEdge("optimization" as never, "write_caption" as never);
 
   // SCHEDULE GATE: instant runs publish now; scheduled runs stop at "ready".
   graph.addConditionalEdges(
-    "caption" as never,
+    "write_caption" as never,
     (state: GraphStateType) =>
       state.scheduleMode === "instant" ? "publish" : "persist",
     { publish: "publish", persist: "persist" } as never,
