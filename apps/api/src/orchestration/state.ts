@@ -42,6 +42,9 @@ export const GraphState = Annotation.Root({
     sourceUrl?: string;
     uploadedAssetId?: string;
     context?: string;
+    stockSource?: "auto" | "pexels" | "unsplash";
+    enhanceAfterStock?: boolean;
+    enhanceInstructions?: string;
   }>(),
   targets: Annotation<GraphTarget[]>(),
   captionRequest: Annotation<{

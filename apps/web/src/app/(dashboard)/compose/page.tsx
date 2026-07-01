@@ -33,6 +33,9 @@ export default function ComposePage() {
   const [instructions, setInstructions] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [context, setContext] = useState("");
+  const [stockSource, setStockSource] = useState<"auto" | "pexels" | "unsplash">("auto");
+  const [enhanceAfterStock, setEnhanceAfterStock] = useState(false);
+  const [enhanceInstructions, setEnhanceInstructions] = useState("");
   const [caption, setCaption] = useState("");
   const [generateCaption, setGenerateCaption] = useState(false);
   const [targets, setTargets] = useState<Platform[]>(["instagram"]);
@@ -70,7 +73,15 @@ export default function ComposePage() {
       case "ai_enhance":
         return { workflow, uploadedAssetId: uploadedAssetId!, instructions, ...base };
       case "stock_discovery":
-        return { workflow, prompt, maxCandidates: 10, ...base };
+        return {
+          workflow,
+          prompt,
+          maxCandidates: 10,
+          stockSource,
+          enhanceAfterStock,
+          enhanceInstructions: enhanceAfterStock ? enhanceInstructions || undefined : undefined,
+          ...base,
+        };
       case "scrape":
         return { workflow, sourceUrl, context, ...base };
     }
@@ -126,6 +137,11 @@ export default function ComposePage() {
               />
               {upload.isPending && <Hint>Uploading…</Hint>}
               {uploadedAssetId && <Hint>✓ Uploaded ({uploadedAssetId.slice(-6)})</Hint>}
+              {upload.isError && (
+                <p className="mt-1 text-xs text-red-400">
+                  Upload failed: {(upload.error as Error).message}
+                </p>
+              )}
             </div>
           )}
 
@@ -141,6 +157,61 @@ export default function ComposePage() {
                 }
               />
             </Field>
+          )}
+
+          {workflow === "stock_discovery" && (
+            <>
+              {/* Source picker */}
+              <Field label="Photo source">
+                <div className="flex gap-2">
+                  {(["auto", "pexels", "unsplash"] as const).map((src) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => setStockSource(src)}
+                      className={cn(
+                        "rounded-lg border px-4 py-2 text-sm font-medium capitalize transition-colors",
+                        stockSource === src
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-secondary/50",
+                      )}
+                    >
+                      {src === "auto" ? "Auto (Pexels → Unsplash)" : src === "pexels" ? "Pexels only" : "Unsplash only"}
+                    </button>
+                  ))}
+                </div>
+                <Hint>Auto tries Pexels first, falls back to Unsplash if no results.</Hint>
+              </Field>
+
+              {/* Enhance toggle */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enhanceAfterStock}
+                    onChange={(e) => setEnhanceAfterStock(e.target.checked)}
+                    className="h-4 w-4 rounded"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Enhance with AI after download</p>
+                    <p className="text-xs text-muted-foreground">
+                      Runs the stock photo through AI to improve lighting, color, and visual impact.
+                    </p>
+                  </div>
+                </label>
+
+                {enhanceAfterStock && (
+                  <Field label="Enhancement instructions (optional)">
+                    <Textarea
+                      value={enhanceInstructions}
+                      onChange={setEnhanceInstructions}
+                      placeholder="Improve the lighting and add a warm tone suitable for a lifestyle brand…"
+                    />
+                    <Hint>Leave blank to use the default enhancement prompt.</Hint>
+                  </Field>
+                )}
+              </div>
+            </>
           )}
 
           {workflow === "ai_enhance" && (
@@ -243,7 +314,13 @@ export default function ComposePage() {
             disabled={submit.isPending || (needsUpload && !uploadedAssetId) || targets.length === 0}
             onClick={() => submit.mutate()}
           >
-            {submit.isPending ? "Dispatching…" : scheduleMode === "instant" ? "Generate & Publish" : "Schedule Post"}
+            {submit.isPending
+              ? "Dispatching…"
+              : scheduleMode === "scheduled"
+              ? "Schedule Post"
+              : workflow === "passthrough"
+              ? "Upload & Publish"
+              : "Generate & Publish"}
           </Button>
           {submit.isSuccess && (
             <span className="text-sm text-emerald-300">

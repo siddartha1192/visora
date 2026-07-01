@@ -7,6 +7,8 @@ import { ForbiddenError, UnauthorizedError } from "../../lib/errors.js";
 /** Identity attached to every authenticated request. */
 export interface AuthContext {
   userId?: string;
+  userName?: string;
+  userEmail?: string;
   workspaceId: string;
   via: "jwt" | "api_key";
   scopes: string[];
@@ -82,4 +84,8 @@ export async function assertMembership(req: FastifyRequest) {
     (w) => w.workspaceId.toString() === auth.workspaceId,
   );
   if (!isMember) throw new ForbiddenError("Not a member of this workspace");
+
+  // Attach user identity so request-scoped loggers can include name + email.
+  auth.userName = user?.name;
+  auth.userEmail = user?.email;
 }

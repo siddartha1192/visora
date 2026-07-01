@@ -35,6 +35,9 @@ tmp/
 # local image uploads (dev-only, replaced by S3 in production)
 apps/api/uploads/
 
+# structured JSON logs (dev-only, replaced by DB/S3 transport in production)
+apps/api/logs/
+
 # Claude Code local settings (machine-specific, not for sharing)
 .claude/settings.local.json
 

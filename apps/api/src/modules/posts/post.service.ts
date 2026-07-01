@@ -32,6 +32,9 @@ export async function createPost(args: {
           ? new Types.ObjectId(input.uploadedAssetId)
           : undefined,
       context: "context" in input ? input.context : undefined,
+      stockSource: "stockSource" in input ? input.stockSource : undefined,
+      enhanceAfterStock: "enhanceAfterStock" in input ? input.enhanceAfterStock : undefined,
+      enhanceInstructions: "enhanceInstructions" in input ? input.enhanceInstructions : undefined,
     },
     caption: {
       text: input.caption?.text ?? "",

@@ -89,19 +89,27 @@ export class OpenAIImageGenerator implements ImageGenerator {
             model: env.OPENAI_IMAGE_MODEL,
             image,
             prompt: params.instructions,
-            response_format: "b64_json",
-            ...(params.mask
-              ? { mask: undefined as never } // mask wiring left for inpainting phase
-              : {}),
-          }),
+          } as Parameters<typeof this.client.images.edit>[0]),
         { label: "openai.images.edit" },
       );
       const first = res.data?.[0];
-      if (!first?.b64_json) throw new Error("no image returned");
-      const bytes = Buffer.from(first.b64_json, "base64");
+      if (!first) throw new Error("no image returned");
+
+      let bytes: Buffer;
+      let mime = "image/png";
+      if (first.b64_json) {
+        bytes = Buffer.from(first.b64_json, "base64");
+      } else if (first.url) {
+        const fetched = await fetchImage(first.url);
+        bytes = fetched.bytes;
+        mime = fetched.mime;
+      } else {
+        throw new Error("no image data in response");
+      }
+
       return {
         bytes,
-        mime: "image/png",
+        mime,
         width: 1024,
         height: 1024,
         usage: {

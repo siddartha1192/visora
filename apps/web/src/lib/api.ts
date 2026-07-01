@@ -50,6 +50,12 @@ export const api = {
   listPosts: (page = 1) =>
     request<Paginated<PostDTO>>(`/posts?page=${page}`),
   getPost: (id: string) => request<PostDTO>(`/posts/${id}`),
+  listAssets: (params?: { kind?: string; page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.kind) qs.set("kind", params.kind);
+    if (params?.page) qs.set("page", String(params.page));
+    return request<Paginated<AssetDTO>>(`/assets?${qs}`);
+  },
   getAsset: (id: string) => request<AssetDTO>(`/assets/${id}`),
   cancelPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/cancel`, { method: "POST" }),

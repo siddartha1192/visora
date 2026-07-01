@@ -38,6 +38,7 @@ export function toPostDTO(post: PostDoc): PostDTO {
       publishedAt: post.schedule?.publishedAt?.toISOString(),
     },
     jobId: post.jobId?.toString(),
+    lastError: post.lastError ?? undefined,
     createdAt: (post as unknown as { createdAt: Date }).createdAt.toISOString(),
     updatedAt: (post as unknown as { updatedAt: Date }).updatedAt.toISOString(),
   };

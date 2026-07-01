@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { BadRequestError } from "../../lib/errors.js";
-import { getAsset, uploadAsset } from "../../modules/assets/asset.service.js";
+import { getAsset, listAssets, uploadAsset } from "../../modules/assets/asset.service.js";
 import { created, ok } from "../reply.js";
 
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"];
@@ -19,6 +19,23 @@ export async function upload(req: FastifyRequest, reply: FastifyReply) {
     mime: file.mimetype,
   });
   return created(reply, dto);
+}
+
+export async function list(req: FastifyRequest, reply: FastifyReply) {
+  const { kind, page, pageSize } = req.query as {
+    kind?: string;
+    page?: string;
+    pageSize?: string;
+  };
+  return ok(
+    reply,
+    await listAssets({
+      workspaceId: req.auth!.workspaceId,
+      kind,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    }),
+  );
 }
 
 export async function getOne(req: FastifyRequest, reply: FastifyReply) {

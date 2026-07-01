@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { env } from "../config/env.js";
 import { isProd } from "../config/env.js";
 import { UPLOADS_DIR } from "../integrations/storage/local-disk.adapter.js";
+import { appLog } from "../lib/logging/index.js";
 import { loggerOptions } from "../lib/logger.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { registerRoutes } from "./routes/index.js";
@@ -37,6 +38,36 @@ export async function buildServer(): Promise<FastifyInstance> {
       decorateReply: false,
     });
   }
+
+  // Structured request logging — runs after auth preHandlers so req.auth is populated.
+  app.addHook("onResponse", (req, reply, done) => {
+    const auth = req.auth;
+    const user = auth?.userId
+      ? { id: auth.userId, name: auth.userName, email: auth.userEmail }
+      : undefined;
+
+    const level = reply.statusCode >= 500 ? "error"
+      : reply.statusCode >= 400 ? "warn"
+      : "info";
+
+    const meta = {
+      method: req.method,
+      url: req.url,
+      status: reply.statusCode,
+      durationMs: Math.round(reply.elapsedTime),
+      ...(user ? { user } : {}),
+    };
+
+    if (level === "error") {
+      appLog.error("http request", meta);
+    } else if (level === "warn") {
+      appLog.warn("http request", meta);
+    } else {
+      appLog.info("http request", meta);
+    }
+
+    done();
+  });
 
   app.setErrorHandler(errorHandler);
   await registerRoutes(app);

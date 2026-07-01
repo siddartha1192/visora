@@ -35,6 +35,7 @@ export async function registerRoutes(app: FastifyInstance) {
       r.post("/posts/:id/cancel", posts.cancel);
 
       r.post("/assets", assets.upload);
+      r.get("/assets", assets.list);
       r.get("/assets/:id", assets.getOne);
     },
     { prefix: "/v1" },

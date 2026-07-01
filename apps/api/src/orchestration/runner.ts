@@ -40,6 +40,9 @@ function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
       sourceUrl: post.input?.sourceUrl ?? undefined,
       uploadedAssetId: post.input?.uploadedAssetId?.toString(),
       context: post.input?.context ?? undefined,
+      stockSource: (post.input as { stockSource?: "auto" | "pexels" | "unsplash" })?.stockSource ?? undefined,
+      enhanceAfterStock: (post.input as { enhanceAfterStock?: boolean })?.enhanceAfterStock ?? undefined,
+      enhanceInstructions: (post.input as { enhanceInstructions?: string })?.enhanceInstructions ?? undefined,
     },
     targets: post.targets.map((t) => ({
       platform: t.platform,

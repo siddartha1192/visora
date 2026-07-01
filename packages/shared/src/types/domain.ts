@@ -74,6 +74,7 @@ export interface PostDTO {
     publishedAt?: string;
   };
   jobId?: string;
+  lastError?: string;
   createdAt: string;
   updatedAt: string;
 }

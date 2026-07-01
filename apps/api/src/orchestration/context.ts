@@ -19,6 +19,7 @@ import { Types } from "mongoose";
 import type { ServiceContainer } from "../config/container.js";
 import { AgentLogModel } from "../db/models/index.js";
 import { logger } from "../lib/logger.js";
+import { appLog } from "../lib/logging/index.js";
 import type { GraphStateType, GraphUpdate } from "./state.js";
 
 /** Injected through LangGraph's `configurable` so nodes stay pure + testable. */
@@ -62,9 +63,20 @@ export function defineNode(node: AgentNode, fn: NodeFn) {
       sequence,
     };
 
+    // Node-scoped logger with full run identity baked in.
+    const nodeLog = appLog.child({
+      node,
+      jobId: state.jobId,
+      postId: state.postId,
+      workspaceId: state.workspaceId,
+      workflow: state.workflow,
+      sequence,
+    });
+
     await AgentLogModel.create({ ...base, status: "started" }).catch((e) =>
       logger.error({ e, node }, "failed writing started log"),
     );
+    nodeLog.info("node started");
 
     try {
       const update = await fn(state, ctx);
@@ -87,16 +99,19 @@ export function defineNode(node: AgentNode, fn: NodeFn) {
             }
           : {}),
       }).catch((e) => logger.error({ e, node }, "failed writing success log"));
+      nodeLog.info("node succeeded", { durationMs, provider: usage?.provider });
       return { ...update, seq: sequence };
     } catch (err) {
       const e = err as Error;
+      const durationMs = Date.now() - startedAt;
       await AgentLogModel.create({
         ...base,
         status: "failed",
-        durationMs: Date.now() - startedAt,
+        durationMs,
         error: { message: e.message, stack: e.stack },
       }).catch((le) => logger.error({ le, node }, "failed writing error log"));
       logger.error({ node, err: e.message }, "node failed");
+      nodeLog.error("node failed", { durationMs, err: e.message });
       throw err;
     }
   };

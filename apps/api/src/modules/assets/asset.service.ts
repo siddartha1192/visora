@@ -43,6 +43,37 @@ export async function uploadAsset(args: {
   return toAssetDTO(asset, await services.objectStore.signedUrl(key));
 }
 
+export async function listAssets(args: {
+  workspaceId: string;
+  kind?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{ items: AssetDTO[]; page: number; pageSize: number; total: number }> {
+  const page = Math.max(1, args.page ?? 1);
+  const pageSize = Math.min(50, args.pageSize ?? 24);
+  const filter: Record<string, unknown> = { workspaceId: new Types.ObjectId(args.workspaceId) };
+  if (args.kind) filter.kind = args.kind;
+
+  const [docs, total] = await Promise.all([
+    AssetModel.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    AssetModel.countDocuments(filter),
+  ]);
+
+  const services = createContainer();
+  const items = await Promise.all(
+    docs.map(async (doc) => {
+      const url = await services.objectStore.signedUrl(doc.s3?.key ?? "");
+      return toAssetDTO(doc as AssetDoc, url);
+    }),
+  );
+
+  return { items, page, pageSize, total };
+}
+
 export async function getAsset(
   workspaceId: string,
   assetId: string,

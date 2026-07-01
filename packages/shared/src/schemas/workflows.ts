@@ -44,6 +44,12 @@ export const stockDiscoveryInputSchema = z.object({
   prompt: z.string().min(3).max(2000),
   /** Optional cap on candidates fetched before selection. */
   maxCandidates: z.number().int().min(1).max(30).default(10),
+  /** Pin search to a specific provider, or let the system try Pexels → Unsplash. */
+  stockSource: z.enum(["auto", "pexels", "unsplash"]).default("auto"),
+  /** When true, the downloaded stock photo is passed through AI enhancement. */
+  enhanceAfterStock: z.boolean().default(false),
+  /** Instructions for the AI when enhanceAfterStock is true. Falls back to a sensible default. */
+  enhanceInstructions: z.string().max(2000).optional(),
   ...baseFields,
 });
 

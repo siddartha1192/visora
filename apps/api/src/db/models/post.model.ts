@@ -42,6 +42,9 @@ const postSchema = new Schema(
       sourceUrl: { type: String },
       uploadedAssetId: { type: Schema.Types.ObjectId, ref: "Asset" },
       context: { type: String },
+      stockSource: { type: String, enum: ["auto", "pexels", "unsplash"] },
+      enhanceAfterStock: { type: Boolean },
+      enhanceInstructions: { type: String },
     },
     caption: {
       text: { type: String, default: "" },
@@ -57,6 +60,7 @@ const postSchema = new Schema(
       publishedAt: { type: Date },
     },
     jobId: { type: Schema.Types.ObjectId, ref: "Job" },
+    lastError: { type: String },
   },
   { timestamps: true },
 );
