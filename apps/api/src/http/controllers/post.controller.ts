@@ -1,10 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createPostSchema } from "@visora/shared";
 import {
+  approvePost,
   cancelPost,
   createPost,
   getPost,
   listPosts,
+  rejectPost,
 } from "../../modules/posts/post.service.js";
 import { accepted, ok } from "../reply.js";
 
@@ -41,4 +43,14 @@ export async function getOne(req: FastifyRequest, reply: FastifyReply) {
 export async function cancel(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
   return ok(reply, await cancelPost(req.auth!.workspaceId, id));
+}
+
+export async function approve(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  return ok(reply, await approvePost(req.auth!.workspaceId, id));
+}
+
+export async function reject(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  return ok(reply, await rejectPost(req.auth!.workspaceId, id));
 }

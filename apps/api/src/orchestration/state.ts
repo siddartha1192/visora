@@ -60,6 +60,8 @@ export const GraphState = Annotation.Root({
   processedAsset: Annotation<StoredAssetRef | undefined>(),
   /** The asset that flows into optimization (raw or processed). */
   primaryAssetUrl: Annotation<string | undefined>(),
+  /** Set by the review node after the human-approval interrupt resolves. */
+  approvalStatus: Annotation<"approved" | "rejected" | undefined>(),
   variants: Annotation<Array<AssetVariant & { variantId: string }> | undefined>(),
   caption: Annotation<
     { text: string; hashtags: string[]; generated: boolean } | undefined

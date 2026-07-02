@@ -1,8 +1,9 @@
 import type { CreatePostInput, PostDTO } from "@visora/shared";
 import { Types } from "mongoose";
 import { JobModel, PostModel } from "../../db/models/index.js";
-import { NotFoundError } from "../../lib/errors.js";
+import { NotFoundError, BadRequestError } from "../../lib/errors.js";
 import { enqueuePost } from "../../queue/post-queue.js";
+import { resumePostGraph } from "../../orchestration/runner.js";
 import { toPostDTO } from "./post.serializer.js";
 
 /**
@@ -102,6 +103,34 @@ export async function getPost(
   });
   if (!post) throw new NotFoundError("Post");
   return toPostDTO(post);
+}
+
+export async function approvePost(workspaceId: string, postId: string): Promise<PostDTO> {
+  const post = await PostModel.findOne({
+    _id: new Types.ObjectId(postId),
+    workspaceId: new Types.ObjectId(workspaceId),
+  });
+  if (!post) throw new NotFoundError("Post");
+  if (post.status !== "pending_review") {
+    throw new BadRequestError(`Post is not pending review (status: ${post.status})`);
+  }
+  await resumePostGraph(post, { approved: true });
+  const updated = await PostModel.findById(post._id);
+  return toPostDTO(updated!);
+}
+
+export async function rejectPost(workspaceId: string, postId: string): Promise<PostDTO> {
+  const post = await PostModel.findOne({
+    _id: new Types.ObjectId(postId),
+    workspaceId: new Types.ObjectId(workspaceId),
+  });
+  if (!post) throw new NotFoundError("Post");
+  if (post.status !== "pending_review") {
+    throw new BadRequestError(`Post is not pending review (status: ${post.status})`);
+  }
+  await resumePostGraph(post, { approved: false });
+  const updated = await PostModel.findById(post._id);
+  return toPostDTO(updated!);
 }
 
 export async function cancelPost(

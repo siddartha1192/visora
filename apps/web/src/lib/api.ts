@@ -23,7 +23,9 @@ export function setToken(token: string | null) {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!(init.body instanceof FormData)) {
+  // Only advertise JSON when there is actually a JSON body — an empty Content-Type:
+  // application/json with no body causes Fastify to reject the request with 400.
+  if (init.body !== undefined && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
@@ -59,6 +61,10 @@ export const api = {
   getAsset: (id: string) => request<AssetDTO>(`/assets/${id}`),
   cancelPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/cancel`, { method: "POST" }),
+  approvePost: (id: string) =>
+    request<PostDTO>(`/posts/${id}/approve`, { method: "POST" }),
+  rejectPost: (id: string) =>
+    request<PostDTO>(`/posts/${id}/reject`, { method: "POST" }),
   uploadAsset: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);

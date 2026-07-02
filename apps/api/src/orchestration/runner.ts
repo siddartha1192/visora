@@ -8,6 +8,7 @@
  *  - Injects the services container via `configurable` so nodes never import providers directly
  *  - Ties each run to a `thread_id` (= jobId) so the checkpointer can resume a crashed run
  */
+import { Command } from "@langchain/langgraph";
 import type { PostDoc } from "../db/models/index.js";
 import { createContainer, type ServiceContainer } from "../config/container.js";
 import { logger } from "../lib/logger.js";
@@ -78,6 +79,35 @@ export async function runPostGraph(post: PostDoc, jobId: string) {
   logger.info(
     { postId: post._id.toString(), status: result.status },
     "post graph finished",
+  );
+  return result;
+}
+
+/**
+ * Resumes a graph that was paused at the review interrupt.
+ * Called by the approve / reject API endpoints — not the worker.
+ */
+export async function resumePostGraph(
+  post: PostDoc,
+  decision: { approved: boolean },
+) {
+  if (!post.jobId) throw new Error(`resumePostGraph: post ${post._id} has no jobId — cannot resume`);
+  const { graph, services: svc } = await getGraph();
+  const threadId = post.jobId.toString();
+
+  logger.info(
+    { postId: post._id.toString(), approved: decision.approved },
+    "resuming post graph after review",
+  );
+
+  const result = await graph.invoke(
+    new Command({ resume: decision }),
+    { configurable: { services: svc, thread_id: threadId }, recursionLimit: 50 },
+  );
+
+  logger.info(
+    { postId: post._id.toString(), status: result.status },
+    "post graph resumed and finished",
   );
   return result;
 }

@@ -24,7 +24,7 @@ import {
   StubLanguageModel,
 } from "../integrations/llm/stub.adapter.js";
 import { CloudinaryOptimizer } from "../integrations/media/cloudinary.adapter.js";
-import { StubMediaOptimizer } from "../integrations/media/stub.adapter.js";
+import { SharpMediaOptimizer } from "../integrations/media/sharp.adapter.js";
 import { PexelsStockProvider } from "../integrations/stock/pexels.adapter.js";
 import { UnsplashStockProvider } from "../integrations/stock/unsplash.adapter.js";
 import { StubStockProvider } from "../integrations/stock/stub.adapter.js";
@@ -72,12 +72,19 @@ export function createContainer(): ServiceContainer {
       ? new S3ObjectStore()
       : new LocalDiskObjectStore();
 
+  // CloudinaryOptimizer resizes by fetching the source URL from its servers —
+  // that only works when images are on a public host (S3). When using LocalDisk
+  // (dev/test) the URL is http://localhost:4000/... which Cloudinary cannot reach.
+  // SharpMediaOptimizer always works: it reads bytes locally and uploads variants
+  // back to the same object store (LocalDisk in dev, S3 in prod).
+  const isLocalStore = !(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);
   const hasCloudinary =
     Boolean(env.CLOUDINARY_URL) ||
     Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY);
-  const mediaOptimizer: MediaOptimizer = hasCloudinary
-    ? new CloudinaryOptimizer()
-    : (usingStub.push("mediaOptimizer"), new StubMediaOptimizer());
+  const mediaOptimizer: MediaOptimizer =
+    hasCloudinary && !isLocalStore
+      ? new CloudinaryOptimizer()
+      : new SharpMediaOptimizer(objectStore);
 
   const stockProviders: StockProvider[] = [];
   if (env.PEXELS_API_KEY) stockProviders.push(new PexelsStockProvider());

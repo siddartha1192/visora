@@ -39,9 +39,14 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
   let providers = ctx.services.stockProviders;
   if (preference !== "auto") {
     const pinned = providers.find((p) => p.name === preference);
-    providers = pinned
-      ? [pinned]
-      : providers; // requested provider not configured — fall through to all
+    if (!pinned) {
+      // User explicitly requested a provider that has no API key configured.
+      // Fail clearly rather than silently using a different provider.
+      throw new Error(
+        `stock: "${preference}" provider is not configured — add ${preference === "pexels" ? "PEXELS_API_KEY" : "UNSPLASH_ACCESS_KEY"} to your environment`,
+      );
+    }
+    providers = [pinned];
   }
 
   let candidates: AssetCandidate[] = [];
@@ -49,7 +54,10 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
     candidates = await provider.search({ keywords, limit: 10 }).catch(() => []);
     if (candidates.length) break;
   }
-  if (!candidates.length) throw new Error("stock: no candidates found");
+  if (!candidates.length) {
+    const providerNames = providers.map((p) => p.name).join(", ");
+    throw new Error(`stock: no photos found for "${keywords.join(", ")}" on [${providerNames}]`);
+  }
 
   // 3) select — prefer largest resolution
   const best = [...candidates].sort(
@@ -61,7 +69,9 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
   const img = await fetchImage(best.url);
 
   const stockSource: AssetSource =
-    best.source === "unsplash" ? "unsplash" : "pexels";
+    best.source === "unsplash" ? "unsplash" :
+    best.source === "pexels"   ? "pexels"   :
+    "pexels"; // stub/unknown — dev-only fallback, real providers always set their name
 
   // 5) optional AI enhancement
   const shouldEnhance = state.input.enhanceAfterStock === true;

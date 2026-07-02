@@ -7,6 +7,7 @@
  */
 import { PLATFORM_IMAGE_SPECS, type AssetVariant } from "@visora/shared";
 import { Types } from "mongoose";
+import { logger } from "../../lib/logger.js";
 import { defineNode } from "../context.js";
 
 /**
@@ -22,6 +23,12 @@ export const optimizationNode = defineNode("optimization", async (state, ctx) =>
   }
 
   const platforms = Array.from(new Set(state.targets.map((t) => t.platform)));
+
+  logger.info(
+    { postId: state.postId, optimizer: ctx.services.mediaOptimizer.name, platforms, sourceKey: source.s3Key },
+    "optimization: starting platform resize",
+  );
+
   const variants: Array<AssetVariant & { variantId: string }> = [];
 
   for (const platform of platforms) {
@@ -41,6 +48,11 @@ export const optimizationNode = defineNode("optimization", async (state, ctx) =>
       height: result.height,
     });
   }
+
+  logger.info(
+    { postId: state.postId, variantCount: variants.length, variants: variants.map((v) => ({ platform: v.platform, width: v.width, height: v.height, key: v.s3Key })) },
+    "optimization: all variants ready",
+  );
 
   return {
     variants,

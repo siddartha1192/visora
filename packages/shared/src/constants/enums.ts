@@ -19,12 +19,14 @@ export const POST_STATUSES = [
   "draft",
   "queued",
   "processing",
+  "pending_review",
   "ready",
   "scheduled",
   "publishing",
   "published",
   "failed",
   "cancelled",
+  "rejected",
 ] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
 
@@ -74,6 +76,7 @@ export const AGENT_NODES = [
   "scraping",
   "optimization",
   "caption",
+  "review",
   "publish",
   "persist",
 ] as const;

@@ -21,6 +21,7 @@ import { WORKFLOW_REGISTRY } from "./registry.js";
 import { ingestNode } from "./nodes/ingest.node.js";
 import { optimizationNode } from "./nodes/optimization.node.js";
 import { captionNode } from "./nodes/caption.node.js";
+import { reviewNode } from "./nodes/review.node.js";
 import { publishNode } from "./nodes/publish.node.js";
 import { persistNode } from "./nodes/persist.node.js";
 import { createCheckpointer } from "./checkpointer/mongo-checkpointer.js";
@@ -41,6 +42,7 @@ export async function buildGraph(_services: ServiceContainer) {
     .addNode("ingest", ingestNode)
     .addNode("optimization", optimizationNode)
     .addNode("write_caption", captionNode)
+    .addNode("review", reviewNode)
     .addNode("publish", publishNode)
     .addNode("persist", persistNode);
 
@@ -63,12 +65,15 @@ export async function buildGraph(_services: ServiceContainer) {
   );
 
   graph.addEdge("optimization" as never, "write_caption" as never);
+  graph.addEdge("write_caption" as never, "review" as never);
 
-  // SCHEDULE GATE: instant runs publish now; scheduled runs stop at "ready".
+  // APPROVAL + SCHEDULE GATE: after human review, route based on decision and schedule mode.
   graph.addConditionalEdges(
-    "write_caption" as never,
-    (state: GraphStateType) =>
-      state.scheduleMode === "instant" ? "publish" : "persist",
+    "review" as never,
+    (state: GraphStateType) => {
+      if (state.approvalStatus === "rejected") return "persist"; // skip publish, mark rejected
+      return state.scheduleMode === "instant" ? "publish" : "persist";
+    },
     { publish: "publish", persist: "persist" } as never,
   );
 

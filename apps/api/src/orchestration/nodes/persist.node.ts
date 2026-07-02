@@ -63,7 +63,9 @@ export const persistNode = defineNode("persist", async (state) => {
   });
 
   let status: string;
-  if (!wasPublishStep) {
+  if (state.approvalStatus === "rejected") {
+    status = "rejected";
+  } else if (!wasPublishStep) {
     status = "ready"; // scheduled: asset prepared, awaiting its run time
   } else {
     const anyPublished = published.some((p) => p.status === "published");
