@@ -43,16 +43,16 @@ interface PlannerDecision {
 
 const PLATFORM_SECTION = `
 Platform detection:
-- platforms: list any social media platforms explicitly mentioned or strongly implied in the brief.
+- platforms: list social media platforms mentioned in the brief.
   Valid values: "instagram", "facebook", "x" (for Twitter/X), "linkedin".
-  Return an empty array if no platforms are mentioned — do not guess.`;
+  If no platform is mentioned, default to ["instagram"].`;
 
 const buildScheduleSection = (nowUtc: string) => `
 Schedule detection (current UTC time: ${nowUtc}):
-- scheduleMode: "scheduled" if the brief mentions posting at a specific future time or date; otherwise "instant".
+- scheduleMode: "scheduled" if the brief mentions posting at a specific future time or date; otherwise default to "instant".
 - scheduledAt: when scheduleMode is "scheduled", the target ISO 8601 UTC datetime string.
   Convert relative references ("tomorrow at 9am", "next Monday", "in 2 hours") to absolute UTC.
-  If scheduled but no specific time is given, default to 24 hours from now.
+  If scheduled but no specific time is given, default to 24 hours from now (${new Date(Date.now() + 86400000).toISOString()}).
   Leave null when scheduleMode is "instant".`;
 
 export const plannerNode = defineNode("planner", async (state, ctx) => {
