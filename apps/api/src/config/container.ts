@@ -94,9 +94,10 @@ export function createContainer(): ServiceContainer {
     stockProviders.push(new StubStockProvider());
   }
 
-  // Playwright is opt-in (requires installed browser binaries).
+  // Playwright is on by default. Set ENABLE_PLAYWRIGHT=false to force the stub
+  // (useful in CI environments without installed browser binaries).
   const scraper: WebScraper =
-    env.NODE_ENV === "production" || process.env.ENABLE_PLAYWRIGHT === "true"
+    process.env.ENABLE_PLAYWRIGHT !== "false"
       ? new PlaywrightScraper()
       : (usingStub.push("scraper"), new StubScraper());
 

@@ -22,25 +22,27 @@ export class PlaywrightScraper implements WebScraper {
       await page.goto(url, { waitUntil: "networkidle", timeout: 20000 });
       const pageTitle = await page.title();
 
-      const candidates = await page.evaluate(() => {
-        // Runs in the browser context; `document` is provided by the page.
-        const doc = (globalThis as unknown as { document: any }).document;
-        const seen = new Set<string>();
-        const out: Array<{ url: string; width: number; height: number; alt: string }> = [];
-        const push = (src: string | null, w = 0, h = 0, alt = "") => {
-          if (!src || seen.has(src) || src.startsWith("data:")) return;
-          seen.add(src);
-          out.push({ url: src, width: w, height: h, alt });
-        };
-        const og = doc.querySelector('meta[property="og:image"]');
-        push(og?.getAttribute("content") ?? null);
-        doc.querySelectorAll("img").forEach((img: any) => {
+      // Pass as a string so the bundler (esbuild) never transforms it —
+      // arrow functions get __name() injected which breaks in the browser context.
+      const candidates = await page.evaluate(`(function () {
+        var seen = {};
+        var out = [];
+        function push(src, w, h, alt) {
+          if (!src || seen[src] || src.indexOf('data:') === 0) return;
+          seen[src] = true;
+          out.push({ url: src, width: w || 0, height: h || 0, alt: alt || '' });
+        }
+        var og = document.querySelector('meta[property="og:image"]');
+        if (og) push(og.getAttribute('content'));
+        document.querySelectorAll('img').forEach(function (img) {
           push(img.currentSrc || img.src, img.naturalWidth, img.naturalHeight, img.alt);
         });
-        return out as Array<{ url: string; width: number; height: number; alt: string }>;
-      });
+        return out;
+      })()`);
 
-      const resolved: AssetCandidate[] = candidates.map((c) => ({
+      const typedCandidates = candidates as Array<{ url: string; width: number; height: number; alt: string }>;
+
+      const resolved: AssetCandidate[] = typedCandidates.map((c) => ({
         url: new URL(c.url, url).toString(),
         width: c.width,
         height: c.height,
