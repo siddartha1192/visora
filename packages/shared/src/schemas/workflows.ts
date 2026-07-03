@@ -61,12 +61,33 @@ export const scrapeInputSchema = z.object({
   ...baseFields,
 });
 
+/**
+ * Fully autonomous mode — the user writes a freeform brief; the planner node
+ * uses an LLM to decide which workflow to run, what to search/generate, and
+ * which caption tone to use. No manual workflow selection required.
+ */
+export const autonomousInputSchema = z.object({
+  workflow: z.literal("autonomous"),
+  /** The user's freeform creative brief, e.g. "Post a sunrise mountain photo to inspire my followers." */
+  brief: z.string().min(10).max(2000),
+  /**
+   * Optional: an asset already uploaded via the assets endpoint.
+   * When present the planner can route to "ai_enhance" (modify it with DALL-E)
+   * or "passthrough" (post it as-is). Without this, only stock/generate/scrape are available.
+   */
+  uploadedAssetId: objectIdSchema.optional(),
+  targets: z.array(publishTargetSchema).min(0).default([]),
+  schedule: scheduleSchema,
+  caption: captionSchema.optional(),
+});
+
 export const createPostSchema = z.discriminatedUnion("workflow", [
   passthroughInputSchema,
   aiGenerateInputSchema,
   aiEnhanceInputSchema,
   stockDiscoveryInputSchema,
   scrapeInputSchema,
+  autonomousInputSchema,
 ]);
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
@@ -75,3 +96,4 @@ export type AiGenerateInput = z.infer<typeof aiGenerateInputSchema>;
 export type AiEnhanceInput = z.infer<typeof aiEnhanceInputSchema>;
 export type StockDiscoveryInput = z.infer<typeof stockDiscoveryInputSchema>;
 export type ScrapeInput = z.infer<typeof scrapeInputSchema>;
+export type AutonomousInput = z.infer<typeof autonomousInputSchema>;

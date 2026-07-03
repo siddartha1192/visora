@@ -36,6 +36,7 @@ function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
     threadId: jobId,
     workflow: post.workflow,
     input: {
+      brief: (post.input as { brief?: string })?.brief ?? undefined,
       prompt: post.input?.prompt ?? undefined,
       instructions: post.input?.instructions ?? undefined,
       sourceUrl: post.input?.sourceUrl ?? undefined,

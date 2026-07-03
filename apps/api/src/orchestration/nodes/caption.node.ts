@@ -28,7 +28,9 @@ export const captionNode = defineNode("caption", async (state, ctx) => {
     return { caption: { text: req?.text ?? "", hashtags: req?.hashtags ?? [], generated: false } };
   }
 
+  // brief is the richest seed for autonomous posts; fall back to workflow-specific fields
   const seed =
+    state.input.brief ??
     state.input.prompt ??
     state.input.instructions ??
     state.input.context ??

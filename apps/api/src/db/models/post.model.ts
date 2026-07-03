@@ -37,6 +37,7 @@ const postSchema = new Schema(
       index: true,
     },
     input: {
+      brief: { type: String },
       prompt: { type: String },
       instructions: { type: String },
       sourceUrl: { type: String },

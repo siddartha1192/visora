@@ -25,6 +25,7 @@ export async function createPost(args: {
     workflow: input.workflow,
     status: "queued",
     input: {
+      brief: "brief" in input ? (input as { brief: string }).brief : undefined,
       prompt: "prompt" in input ? input.prompt : undefined,
       instructions: "instructions" in input ? input.instructions : undefined,
       sourceUrl: "sourceUrl" in input ? input.sourceUrl : undefined,

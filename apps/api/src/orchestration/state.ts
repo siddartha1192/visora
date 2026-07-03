@@ -37,6 +37,7 @@ export const GraphState = Annotation.Root({
 
   // --- inputs ---
   input: Annotation<{
+    brief?: string;
     prompt?: string;
     instructions?: string;
     sourceUrl?: string;
@@ -47,6 +48,8 @@ export const GraphState = Annotation.Root({
     enhanceInstructions?: string;
   }>(),
   targets: Annotation<GraphTarget[]>(),
+  /** Set by the planner node when workflow === "autonomous"; the resolved concrete workflow. */
+  resolvedWorkflow: Annotation<WorkflowType | undefined>(),
   captionRequest: Annotation<{
     text?: string;
     hashtags: string[];

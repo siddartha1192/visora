@@ -9,6 +9,7 @@ export const WORKFLOWS = [
   "ai_enhance",
   "stock_discovery",
   "scrape",
+  "autonomous",
 ] as const;
 export type WorkflowType = (typeof WORKFLOWS)[number];
 
@@ -68,6 +69,7 @@ export type JobState = (typeof JOB_STATES)[number];
 
 export const AGENT_NODES = [
   "ingest",
+  "planner",
   "router",
   "passthrough",
   "generation",
