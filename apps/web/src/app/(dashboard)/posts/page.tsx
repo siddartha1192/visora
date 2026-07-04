@@ -4,10 +4,20 @@ import { useQuery } from "@tanstack/react-query";
 import type { AssetDTO, PostDTO, WorkflowType } from "@visora/shared";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
+import { InlineCalendar } from "@/components/ui/inline-calendar";
 import { api } from "@/lib/api";
-import { AlertCircle, CheckCircle, ImageIcon, XCircle, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  ImageIcon,
+  Send,
+  XCircle,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 type AssetSource = "user" | "dalle3" | "pexels" | "unsplash" | "scrape";
 
@@ -33,8 +43,6 @@ function Chip({ metaKey }: { metaKey: string }) {
 function SourceBadges({ asset, workflow }: { asset: AssetDTO | undefined; workflow: WorkflowType }) {
   if (!asset) return null;
   const source = asset.origin.source as AssetSource;
-
-  // Stock photo that was subsequently AI-enhanced: show original provider + AI Enhanced
   if (
     source === "dalle3" &&
     workflow === "stock_discovery" &&
@@ -50,15 +58,46 @@ function SourceBadges({ asset, workflow }: { asset: AssetDTO | undefined; workfl
       );
     }
   }
-
-  // ai_enhance workflow: user uploaded then AI-edited
   if (source === "dalle3" && workflow === "ai_enhance") return <Chip metaKey="dalle3_enhance" />;
-
-  // ai_generate workflow
   if (source === "dalle3") return <Chip metaKey="dalle3_generate" />;
-
-  // all other sources map directly
   return <Chip metaKey={source} />;
+}
+
+/**
+ * Countdown to a future publish date.
+ * Returns { label, overdue } — overdue means time has passed and the publish
+ * job should be running (BullMQ fires within seconds of the target time).
+ */
+function useCountdown(target: string | undefined) {
+  const [state, setState] = useState({ label: "", overdue: false });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!target) { setState({ label: "", overdue: false }); return; }
+
+    function compute() {
+      const ms = new Date(target!).getTime() - Date.now();
+      if (ms <= 0) {
+        setState({ label: "", overdue: true });
+        return;
+      }
+      const totalMin = Math.floor(ms / 60000);
+      const days = Math.floor(totalMin / 1440);
+      const hrs  = Math.floor((totalMin % 1440) / 60);
+      const mins = totalMin % 60;
+      let label: string;
+      if (days > 0)      label = `in ${days}d ${hrs}h`;
+      else if (hrs > 0)  label = `in ${hrs}h ${mins}m`;
+      else               label = `in ${mins}m`;
+      setState({ label, overdue: false });
+    }
+
+    compute();
+    timerRef.current = setInterval(compute, 30_000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [target]);
+
+  return state;
 }
 
 export default function PostsPage() {
@@ -75,12 +114,20 @@ export default function PostsPage() {
   const closeLightbox = useCallback(() => setLightboxUrl(null), []);
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => api.approvePost(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["posts"] }); setReviewPost(null); },
+    mutationFn: (opts: { scheduledAt?: string; scheduleMode: "instant" | "scheduled" }) =>
+      api.approvePost(reviewPost!.id, opts),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      setReviewPost(null);
+    },
   });
+
   const rejectMutation = useMutation({
     mutationFn: (id: string) => api.rejectPost(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["posts"] }); setReviewPost(null); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      setReviewPost(null);
+    },
   });
 
   const closeReview = useCallback(() => {
@@ -163,7 +210,7 @@ export default function PostsPage() {
         <ReviewModal
           post={reviewPost}
           onClose={closeReview}
-          onApprove={() => approveMutation.mutate(reviewPost.id)}
+          onApprove={(opts) => approveMutation.mutate(opts)}
           onReject={() => rejectMutation.mutate(reviewPost.id)}
           isPending={approveMutation.isPending || rejectMutation.isPending}
           error={reviewError}
@@ -187,6 +234,15 @@ function PostRow({
     queryFn: () => api.getAsset(post.primaryAssetId!),
     enabled: !!post.primaryAssetId,
   });
+
+  const isScheduledReady =
+    post.status === "ready" &&
+    post.schedule?.mode === "scheduled" &&
+    !!post.schedule?.runAt;
+
+  const { label: countdownLabel, overdue } = useCountdown(
+    isScheduledReady ? post.schedule?.runAt : undefined,
+  );
 
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -253,7 +309,7 @@ function PostRow({
         </div>
       </div>
 
-      {/* Pending review — prompt the user to approve or reject */}
+      {/* Pending review */}
       {post.status === "pending_review" && (
         <div className="flex items-center justify-between gap-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
           <p className="text-xs text-yellow-300">
@@ -268,7 +324,32 @@ function PostRow({
         </div>
       )}
 
-      {/* Error banner — only shown when status is failed and lastError is present */}
+      {/* Scheduled ready — countdown or publishing spinner */}
+      {isScheduledReady && (
+        overdue ? (
+          <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400" />
+            <p className="text-xs text-emerald-300">Publishing to platforms…</p>
+          </div>
+        ) : countdownLabel ? (
+          <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-blue-400" />
+            <p className="text-xs text-blue-300">
+              Approved · auto-publishes{" "}
+              <span className="font-semibold">{countdownLabel}</span>
+              {" "}
+              <span className="text-blue-400/70">
+                ({new Date(post.schedule!.runAt!).toLocaleString(undefined, {
+                  month: "short", day: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })})
+              </span>
+            </p>
+          </div>
+        ) : null
+      )}
+
+      {/* Error banner */}
       {post.status === "failed" && post.lastError && (
         <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -289,7 +370,7 @@ function ReviewModal({
 }: {
   post: PostDTO;
   onClose: () => void;
-  onApprove: () => void;
+  onApprove: (opts: { scheduledAt?: string; scheduleMode: "instant" | "scheduled" }) => void;
   onReject: () => void;
   isPending: boolean;
   error: string | null;
@@ -299,6 +380,29 @@ function ReviewModal({
     queryFn: () => api.getAsset(post.primaryAssetId!),
     enabled: !!post.primaryAssetId,
   });
+
+  // Initialise from the post's existing schedule (set by compose form / planner)
+  const [scheduleMode, setScheduleMode] = useState<"instant" | "scheduled">(
+    post.schedule?.mode === "scheduled" && post.schedule?.runAt ? "scheduled" : "instant",
+  );
+  const [publishAt, setPublishAt] = useState<Date | null>(
+    post.schedule?.runAt ? new Date(post.schedule.runAt) : null,
+  );
+
+  function handleApprove() {
+    if (scheduleMode === "scheduled" && publishAt && publishAt > new Date()) {
+      onApprove({ scheduleMode: "scheduled", scheduledAt: publishAt.toISOString() });
+    } else {
+      onApprove({ scheduleMode: "instant" });
+    }
+  }
+
+  const approveLabel =
+    isPending
+      ? "Processing…"
+      : scheduleMode === "scheduled" && publishAt
+      ? `Schedule · ${publishAt.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : "Approve & Publish Now";
 
   return (
     <div
@@ -314,7 +418,7 @@ function ReviewModal({
           <div>
             <h2 className="text-lg font-semibold">Review & Approve</h2>
             <p className="text-sm text-muted-foreground">
-              Approve to publish, or reject to discard.
+              Review the content, then choose when to publish.
             </p>
           </div>
           <button
@@ -326,50 +430,117 @@ function ReviewModal({
           </button>
         </div>
 
-        {/* Image preview */}
-        <div className="p-6 space-y-5">
-          {asset?.url ? (
-            <img
-              src={asset.url}
-              alt="Generated content"
-              className="w-full max-h-80 rounded-xl object-contain bg-secondary/50"
-            />
-          ) : (
-            <div className="flex h-48 items-center justify-center rounded-xl bg-secondary">
-              <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
-            </div>
-          )}
+        <div className="max-h-[70vh] overflow-y-auto">
+          <div className="p-6 space-y-5">
+            {/* Image preview */}
+            {asset?.url ? (
+              <img
+                src={asset.url}
+                alt="Generated content"
+                className="w-full max-h-72 rounded-xl object-contain bg-secondary/50"
+              />
+            ) : (
+              <div className="flex h-40 items-center justify-center rounded-xl bg-secondary">
+                <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+              </div>
+            )}
 
-          {/* Caption */}
-          {post.caption?.text && (
-            <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
-              <p className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">Caption</p>
-              <p className="text-sm">{post.caption.text}</p>
-              {post.caption.hashtags?.length > 0 && (
-                <p className="mt-1.5 text-xs text-primary/70">
-                  {post.caption.hashtags.map((h) => `#${h}`).join(" ")}
+            {/* Caption */}
+            {post.caption?.text && (
+              <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
+                <p className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Caption
                 </p>
+                <p className="text-sm">{post.caption.text}</p>
+                {post.caption.hashtags?.length > 0 && (
+                  <p className="mt-1.5 text-xs text-primary/70">
+                    {post.caption.hashtags.map((h) => `#${h}`).join(" ")}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Targets */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Publishing to:</span>
+              {post.targets.map((t) => (
+                <span
+                  key={t.platform}
+                  className="rounded-full border border-border px-2 py-0.5 capitalize"
+                >
+                  {t.platform}
+                </span>
+              ))}
+            </div>
+
+            {/* ── Publish time ────────────────────────────────────────── */}
+            <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+              <p className="text-sm font-medium">When to publish</p>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("instant")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    scheduleMode === "instant"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-secondary/50",
+                  )}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Publish now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("scheduled")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    scheduleMode === "scheduled"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-secondary/50",
+                  )}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  Schedule
+                </button>
+              </div>
+
+              {scheduleMode === "scheduled" && (
+                <div className="space-y-2">
+                  <InlineCalendar
+                    value={publishAt}
+                    onChange={setPublishAt}
+                    minDate={new Date()}
+                  />
+                  {publishAt && publishAt > new Date() && (
+                    <p className="text-xs text-muted-foreground">
+                      Post will auto-publish on{" "}
+                      <span className="text-foreground font-medium">
+                        {publishAt.toLocaleString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </p>
+                  )}
+                  {publishAt && publishAt <= new Date() && (
+                    <p className="text-xs text-amber-400">
+                      Selected time is in the past — pick a future date.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          )}
-
-          {/* Targets */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Publishing to:</span>
-            {post.targets.map((t) => (
-              <span
-                key={t.platform}
-                className="rounded-full border border-border px-2 py-0.5 capitalize"
-              >
-                {t.platform}
-              </span>
-            ))}
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mx-6 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <div className="mx-6 mb-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {error}
           </div>
@@ -378,12 +549,15 @@ function ReviewModal({
         {/* Actions */}
         <div className="flex gap-3 border-t border-border px-6 py-4">
           <button
-            disabled={isPending}
-            onClick={onApprove}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-50 transition-colors"
+            disabled={
+              isPending ||
+              (scheduleMode === "scheduled" && (!publishAt || publishAt <= new Date()))
+            }
+            onClick={handleApprove}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <CheckCircle className="h-4 w-4" />
-            {isPending ? "Processing…" : "Approve & Publish"}
+            {approveLabel}
           </button>
           <button
             disabled={isPending}

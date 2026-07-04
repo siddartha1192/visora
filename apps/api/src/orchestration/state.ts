@@ -55,7 +55,7 @@ export const GraphState = Annotation.Root({
     hashtags: string[];
     generate: boolean;
   }>(),
-  scheduleMode: Annotation<"instant" | "scheduled">(),
+  scheduleMode: Annotation<"instant" | "scheduled" | "auto">(),
 
   // --- working artifacts ---
   rawAsset: Annotation<StoredAssetRef | undefined>(),

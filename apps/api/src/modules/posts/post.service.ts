@@ -2,7 +2,7 @@ import type { CreatePostInput, PostDTO } from "@visora/shared";
 import { Types } from "mongoose";
 import { JobModel, PostModel } from "../../db/models/index.js";
 import { NotFoundError, BadRequestError } from "../../lib/errors.js";
-import { enqueuePost } from "../../queue/post-queue.js";
+import { enqueuePost, enqueueScheduledPublish } from "../../queue/post-queue.js";
 import { resumePostGraph } from "../../orchestration/runner.js";
 import { toPostDTO } from "./post.serializer.js";
 
@@ -59,20 +59,18 @@ export async function createPost(args: {
     workspaceId: new Types.ObjectId(workspaceId),
     postId: post._id,
     state: "pending",
-    runAt: post.schedule?.runAt,
   });
 
-  await enqueuePost(
-    {
-      postId: post._id.toString(),
-      jobId: job._id.toString(),
-      workspaceId,
-    },
-    { runAt: post.schedule?.runAt ?? undefined },
-  );
+  // Content generation always starts immediately — the schedule.runAt is when
+  // to publish to social platforms after the user approves, not when to start the job.
+  await enqueuePost({
+    postId: post._id.toString(),
+    jobId: job._id.toString(),
+    workspaceId,
+  });
 
   post.jobId = job._id;
-  post.status = input.schedule.mode === "scheduled" ? "scheduled" : "queued";
+  post.status = "queued";
   await post.save();
 
   return toPostDTO(post);
@@ -106,7 +104,11 @@ export async function getPost(
   return toPostDTO(post);
 }
 
-export async function approvePost(workspaceId: string, postId: string): Promise<PostDTO> {
+export async function approvePost(
+  workspaceId: string,
+  postId: string,
+  opts: { scheduledAt?: string; scheduleMode?: "instant" | "scheduled" } = {},
+): Promise<PostDTO> {
   const post = await PostModel.findOne({
     _id: new Types.ObjectId(postId),
     workspaceId: new Types.ObjectId(workspaceId),
@@ -115,8 +117,27 @@ export async function approvePost(workspaceId: string, postId: string): Promise<
   if (post.status !== "pending_review") {
     throw new BadRequestError(`Post is not pending review (status: ${post.status})`);
   }
-  await resumePostGraph(post, { approved: true });
+  await resumePostGraph(post, { approved: true, ...opts });
+
+  // After graph completes, if the post landed in "ready" with a future schedule,
+  // enqueue a delayed BullMQ job that fires at runAt and publishes to the platforms.
   const updated = await PostModel.findById(post._id);
+  if (
+    updated?.status === "ready" &&
+    updated.schedule?.mode === "scheduled" &&
+    updated.schedule?.runAt &&
+    updated.schedule.runAt > new Date()
+  ) {
+    await enqueueScheduledPublish(
+      {
+        postId: post._id.toString(),
+        jobId: post.jobId?.toString() ?? post._id.toString(),
+        workspaceId: post.workspaceId.toString(),
+      },
+      updated.schedule.runAt,
+    );
+  }
+
   return toPostDTO(updated!);
 }
 

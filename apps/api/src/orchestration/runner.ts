@@ -27,6 +27,11 @@ async function getGraph(): Promise<{ graph: CompiledGraph; services: ServiceCont
   return { graph: compiled, services };
 }
 
+/** Returns the cached service container without compiling the full graph. */
+export async function getServices(): Promise<ServiceContainer> {
+  return (await getGraph()).services;
+}
+
 /** Maps a persisted Post into the graph's initial channel state. */
 function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
   return {
@@ -55,7 +60,7 @@ function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
       hashtags: post.caption?.hashtags ?? [],
       generate: post.caption?.generated ?? false,
     },
-    scheduleMode: post.schedule?.mode ?? "instant",
+    scheduleMode: (post.schedule?.mode as "instant" | "scheduled" | "auto") ?? "instant",
     status: "running",
   };
 }
@@ -87,10 +92,16 @@ export async function runPostGraph(post: PostDoc, jobId: string) {
 /**
  * Resumes a graph that was paused at the review interrupt.
  * Called by the approve / reject API endpoints — not the worker.
+ * The full decision is forwarded to the review node via interrupt() so it can
+ * update the schedule (scheduledAt / scheduleMode) before routing downstream.
  */
 export async function resumePostGraph(
   post: PostDoc,
-  decision: { approved: boolean },
+  decision: {
+    approved: boolean;
+    scheduledAt?: string;
+    scheduleMode?: "instant" | "scheduled";
+  },
 ) {
   if (!post.jobId) throw new Error(`resumePostGraph: post ${post._id} has no jobId — cannot resume`);
   const { graph, services: svc } = await getGraph();

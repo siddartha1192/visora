@@ -25,17 +25,27 @@ export const postQueue = new Queue<ProcessPostJobData, unknown, string>(
   },
 );
 
-export async function enqueuePost(
-  data: ProcessPostJobData,
-  opts: { runAt?: Date } = {},
-): Promise<string> {
-  const delay =
-    opts.runAt && opts.runAt.getTime() > Date.now()
-      ? opts.runAt.getTime() - Date.now()
-      : 0;
+export async function enqueuePost(data: ProcessPostJobData): Promise<string> {
   const job = await postQueue.add("process_post", data, {
-    delay,
     jobId: data.jobId, // idempotent: same job id won't double-enqueue
   });
   return job.id ?? data.jobId;
+}
+
+/**
+ * Enqueues a delayed "publish_scheduled_post" job that fires at runAt.
+ * The worker's publish handler reads the post, calls the social platform publishers,
+ * and transitions the post from "ready" → "published".
+ * Job ID is deterministic so re-approving doesn't double-enqueue.
+ */
+export async function enqueueScheduledPublish(
+  data: ProcessPostJobData,
+  runAt: Date,
+): Promise<string> {
+  const delay = Math.max(0, runAt.getTime() - Date.now());
+  const job = await postQueue.add("publish_scheduled_post", data, {
+    delay,
+    jobId: `scheduled_publish_${data.postId}`,
+  });
+  return job.id ?? data.postId;
 }

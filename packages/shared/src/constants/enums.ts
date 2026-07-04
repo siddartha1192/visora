@@ -34,7 +34,7 @@ export type PostStatus = (typeof POST_STATUSES)[number];
 export const TARGET_STATUSES = ["pending", "published", "failed"] as const;
 export type TargetStatus = (typeof TARGET_STATUSES)[number];
 
-export const SCHEDULE_MODES = ["instant", "scheduled"] as const;
+export const SCHEDULE_MODES = ["instant", "scheduled", "auto"] as const;
 export type ScheduleMode = (typeof SCHEDULE_MODES)[number];
 
 export const ASSET_KINDS = [

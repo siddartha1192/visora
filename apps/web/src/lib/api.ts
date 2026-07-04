@@ -61,8 +61,14 @@ export const api = {
   getAsset: (id: string) => request<AssetDTO>(`/assets/${id}`),
   cancelPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/cancel`, { method: "POST" }),
-  approvePost: (id: string) =>
-    request<PostDTO>(`/posts/${id}/approve`, { method: "POST" }),
+  approvePost: (
+    id: string,
+    opts?: { scheduledAt?: string; scheduleMode?: "instant" | "scheduled" },
+  ) =>
+    request<PostDTO>(`/posts/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    }),
   rejectPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/reject`, { method: "POST" }),
   uploadAsset: (file: File) => {

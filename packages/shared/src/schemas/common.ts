@@ -23,11 +23,11 @@ export const scheduleSchema = z
     timezone: z.string().default("UTC"),
   })
   .refine(
-    (s) => s.mode === "instant" || Boolean(s.runAt),
+    (s) => s.mode !== "scheduled" || Boolean(s.runAt),
     { message: "runAt is required when mode is 'scheduled'", path: ["runAt"] },
   )
   .refine(
-    (s) => s.mode === "instant" || !s.runAt || new Date(s.runAt) > new Date(),
+    (s) => s.mode !== "scheduled" || !s.runAt || new Date(s.runAt) > new Date(),
     { message: "runAt must be in the future", path: ["runAt"] },
   );
 export type ScheduleInput = z.infer<typeof scheduleSchema>;

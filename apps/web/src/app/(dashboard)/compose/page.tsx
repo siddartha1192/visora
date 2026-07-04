@@ -11,6 +11,7 @@ import {
 import { Wand2, Sparkles, Images, Globe, Upload, Send, Clock, Bot, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -48,11 +49,15 @@ export default function ComposePage() {
   // Autonomous mode state
   const [brief, setBrief] = useState("");
   const [autonomousAssetId, setAutonomousAssetId] = useState<string | null>(null);
+  // null = no explicit selection (agent reads from brief, then defaults)
+  const [autonomousScheduleMode, setAutonomousScheduleMode] = useState<null | "instant" | "scheduled">(null);
+  const [autonomousRunAt, setAutonomousRunAt] = useState<Date | null>(null);
 
-  // Shared state
+  // Shared state (platforms — empty in autonomous until user picks)
   const [targets, setTargets] = useState<Platform[]>(["instagram"]);
+  // Manual mode delivery
   const [scheduleMode, setScheduleMode] = useState<"instant" | "scheduled">("instant");
-  const [runAt, setRunAt] = useState("");
+  const [runAt, setRunAt] = useState<Date | null>(null);
 
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadAsset(file),
@@ -68,11 +73,22 @@ export default function ComposePage() {
     mutationFn: () => api.createPost(buildPayload()),
   });
 
-  function buildSchedule() {
+  function buildSchedule(autonomous = false) {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (autonomous) {
+      if (autonomousScheduleMode === "scheduled" && autonomousRunAt) {
+        return { mode: "scheduled" as const, runAt: autonomousRunAt.toISOString(), timezone: tz };
+      }
+      if (autonomousScheduleMode === "instant") {
+        return { mode: "instant" as const, timezone: tz };
+      }
+      // No UI selection — signal the planner to decide from the brief
+      return { mode: "auto" as const, timezone: tz };
+    }
     return {
       mode: scheduleMode,
-      runAt: scheduleMode === "scheduled" ? new Date(runAt).toISOString() : undefined,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      runAt: scheduleMode === "scheduled" && runAt ? runAt.toISOString() : undefined,
+      timezone: tz,
     };
   }
 
@@ -87,7 +103,7 @@ export default function ComposePage() {
         brief,
         uploadedAssetId: autonomousAssetId ?? undefined,
         targets: buildTargets(),
-        schedule: buildSchedule(),
+        schedule: buildSchedule(true),
         caption: { generate: true, hashtags: [] },
       } as CreatePostInput;
     }
@@ -146,9 +162,13 @@ export default function ComposePage() {
           onClick={() => {
             const next = !autonomousMode;
             setAutonomousMode(next);
-            // Clear autonomous state when toggling
-            if (next) setTargets([]); // agent detects platforms from brief
-            else setTargets(["instagram"]); // restore sensible manual default
+            if (next) {
+              setTargets([]);                    // no default — agent reads from brief
+              setAutonomousScheduleMode(null);   // no default — agent reads from brief
+              setAutonomousRunAt(null);
+            } else {
+              setTargets(["instagram"]);         // restore manual default
+            }
             setAutonomousAssetId(null);
             autonomousUpload.reset();
             submit.reset();
@@ -229,7 +249,7 @@ export default function ComposePage() {
 
             {/* Platforms */}
             <div>
-              <Label>Platforms <span className="text-muted-foreground font-normal">(optional — agent detects from brief)</span></Label>
+              <Label>Platforms <span className="text-muted-foreground font-normal">(optional — overrides brief)</span></Label>
               <div className="flex flex-wrap gap-2">
                 {PLATFORMS.map((p) => (
                   <button
@@ -252,40 +272,53 @@ export default function ComposePage() {
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">
                 {targets.length === 0
-                  ? "No platforms selected — mention them in your brief (e.g. \"post to Instagram and LinkedIn\")."
-                  : `${targets.length} selected · agent may override based on your brief.`}
+                  ? "No selection — agent reads platforms from your brief, defaults to Instagram."
+                  : `${targets.length} selected — overrides whatever the brief says.`}
               </p>
             </div>
 
             {/* Delivery */}
             <div>
-              <Label>Delivery</Label>
+              <Label>Delivery <span className="text-muted-foreground font-normal">(optional — overrides brief)</span></Label>
               <div className="flex flex-wrap items-center gap-3">
                 <Button
-                  variant={scheduleMode === "instant" ? "default" : "outline"}
+                  variant={autonomousScheduleMode === "instant" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setScheduleMode("instant")}
+                  onClick={() => {
+                    setAutonomousScheduleMode(
+                      autonomousScheduleMode === "instant" ? null : "instant",
+                    );
+                    setAutonomousRunAt(null);
+                  }}
                 >
                   <Send className="h-4 w-4" /> Publish now
                 </Button>
                 <Button
-                  variant={scheduleMode === "scheduled" ? "default" : "outline"}
+                  variant={autonomousScheduleMode === "scheduled" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setScheduleMode("scheduled")}
+                  onClick={() =>
+                    setAutonomousScheduleMode(
+                      autonomousScheduleMode === "scheduled" ? null : "scheduled",
+                    )
+                  }
                 >
                   <Clock className="h-4 w-4" /> Schedule
                 </Button>
-                {scheduleMode === "scheduled" && (
-                  <input
-                    type="datetime-local"
-                    value={runAt}
-                    onChange={(e) => setRunAt(e.target.value)}
-                    className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+                {autonomousScheduleMode === "scheduled" && (
+                  <DateTimePicker
+                    value={autonomousRunAt}
+                    onChange={setAutonomousRunAt}
+                    minDate={new Date()}
+                    placeholder="Pick a date & time"
                   />
                 )}
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                Or mention a time in your brief — e.g. "schedule for tomorrow at 9am".
+                {autonomousScheduleMode === null
+                  ? "No selection — agent reads timing from your brief, defaults to publish now."
+                  : autonomousScheduleMode === "instant"
+                  ? "Will publish immediately after approval — overrides any time mentioned in the brief."
+                  : "Will publish at the selected time — overrides any time mentioned in the brief."}
               </p>
             </div>
 
@@ -300,7 +333,7 @@ export default function ComposePage() {
                 <Bot className="h-4 w-4" />
                 {submit.isPending
                   ? "Agent working…"
-                  : scheduleMode === "scheduled"
+                  : autonomousScheduleMode === "scheduled"
                   ? "Schedule (Autonomous)"
                   : "Let the Agent Post"}
               </Button>
@@ -516,11 +549,11 @@ export default function ComposePage() {
                   <Clock className="h-4 w-4" /> Schedule
                 </Button>
                 {scheduleMode === "scheduled" && (
-                  <input
-                    type="datetime-local"
+                  <DateTimePicker
                     value={runAt}
-                    onChange={(e) => setRunAt(e.target.value)}
-                    className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+                    onChange={setRunAt}
+                    minDate={new Date()}
+                    placeholder="Pick a date & time"
                   />
                 )}
               </div>

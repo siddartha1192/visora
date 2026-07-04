@@ -125,28 +125,40 @@ Return JSON with:
     resolvedWorkflow === "stock_discovery" && Boolean(decision.enhanceAfterStock);
 
   // ── Platform resolution ───────────────────────────────────────────────────
-  // Use platforms extracted from the brief when present; otherwise fall back
-  // to whatever platforms the user pre-selected in the UI.
+  // Priority: UI explicit selection → LLM extraction from brief → default (Instagram)
+  // UI selection always wins — it represents a deliberate user choice.
   const extractedPlatforms = (decision.platforms ?? []).filter(Boolean);
   const defaultAccountId = state.targets[0]?.accountId ?? PLACEHOLDER_ACCOUNT;
 
   let resolvedTargets: GraphTarget[];
-  if (extractedPlatforms.length > 0) {
+  if (state.targets.length > 0) {
+    resolvedTargets = state.targets; // UI selection wins
+  } else if (extractedPlatforms.length > 0) {
     resolvedTargets = extractedPlatforms.map((p) => ({
       platform: p as GraphTarget["platform"],
       accountId: defaultAccountId,
     }));
-  } else if (state.targets.length > 0) {
-    resolvedTargets = state.targets; // Keep the user's manual selection
   } else {
     resolvedTargets = [{ platform: "instagram", accountId: defaultAccountId }];
   }
 
   // ── Schedule resolution ───────────────────────────────────────────────────
-  const resolvedScheduleMode =
-    decision.scheduleMode === "scheduled" ? "scheduled" : "instant";
+  // Priority: UI explicit selection → LLM extraction from brief → default (instant)
+  //   - "scheduled" / "instant" in state → user made a deliberate choice, use it
+  //   - "auto" in state → no UI selection; fall back to brief then default
+  const resolvedScheduleMode: "instant" | "scheduled" =
+    state.scheduleMode === "scheduled"
+      ? "scheduled"                             // UI chose scheduled
+      : state.scheduleMode === "instant"
+      ? "instant"                               // UI explicitly chose publish now
+      : decision.scheduleMode === "scheduled"
+      ? "scheduled"                             // UI unset ("auto") → brief says scheduled
+      : "instant";                              // default
 
-  if (resolvedScheduleMode === "scheduled" && decision.scheduledAt) {
+  // Only write LLM's scheduledAt to the DB when the brief provided the time
+  // (UI was "auto"). When the user pre-selected a date in the UI, post.schedule.runAt
+  // already has the correct value from createPost — no DB update needed.
+  if (resolvedScheduleMode === "scheduled" && decision.scheduledAt && state.scheduleMode === "auto") {
     try {
       const runAt = new Date(decision.scheduledAt);
       if (!isNaN(runAt.getTime()) && runAt > new Date()) {
@@ -156,7 +168,7 @@ Return JSON with:
         );
         logger.info(
           { postId: state.postId, scheduledAt: runAt.toISOString() },
-          "planner: post rescheduled",
+          "planner: post scheduled from brief",
         );
       }
     } catch (err) {

@@ -47,7 +47,17 @@ export async function cancel(req: FastifyRequest, reply: FastifyReply) {
 
 export async function approve(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
-  return ok(reply, await approvePost(req.auth!.workspaceId, id));
+  const body = (req.body ?? {}) as {
+    scheduledAt?: string;
+    scheduleMode?: "instant" | "scheduled";
+  };
+  return ok(
+    reply,
+    await approvePost(req.auth!.workspaceId, id, {
+      scheduledAt: body.scheduledAt,
+      scheduleMode: body.scheduleMode,
+    }),
+  );
 }
 
 export async function reject(req: FastifyRequest, reply: FastifyReply) {
