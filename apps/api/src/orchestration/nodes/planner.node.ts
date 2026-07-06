@@ -15,6 +15,7 @@ import { logger } from "../../lib/logger.js";
 import { defineNode } from "../context.js";
 import type { GraphTarget } from "@visora/shared";
 import type { ExecutableWorkflow } from "../registry.js";
+import type { NodeReturn } from "../context.js";
 
 const PLACEHOLDER_ACCOUNT = "000000000000000000000000";
 
@@ -61,8 +62,6 @@ export const plannerNode = defineNode("planner", async (state, ctx) => {
 
   const hasUploadedImage = Boolean(state.input.uploadedAssetId);
   const nowUtc = new Date().toISOString();
-
-  logger.info({ postId: state.postId, brief, hasUploadedImage }, "planner: analyzing brief");
 
   const systemPrompt = hasUploadedImage
     ? `You are an AI content strategist for a social media scheduling platform.
@@ -158,6 +157,7 @@ Return JSON with:
   // Only write LLM's scheduledAt to the DB when the brief provided the time
   // (UI was "auto"). When the user pre-selected a date in the UI, post.schedule.runAt
   // already has the correct value from createPost — no DB update needed.
+  let resolvedScheduledAt: string | undefined;
   if (resolvedScheduleMode === "scheduled" && decision.scheduledAt && state.scheduleMode === "auto") {
     try {
       const runAt = new Date(decision.scheduledAt);
@@ -166,31 +166,14 @@ Return JSON with:
           { _id: new Types.ObjectId(state.postId) },
           { $set: { "schedule.mode": "scheduled", "schedule.runAt": runAt } },
         );
-        logger.info(
-          { postId: state.postId, scheduledAt: runAt.toISOString() },
-          "planner: post scheduled from brief",
-        );
+        resolvedScheduledAt = runAt.toISOString();
       }
     } catch (err) {
       logger.warn({ postId: state.postId, err }, "planner: failed to parse scheduledAt, using instant");
     }
   }
 
-  logger.info(
-    {
-      postId: state.postId,
-      resolvedWorkflow,
-      hasUploadedImage,
-      platforms: resolvedTargets.map((t) => t.platform),
-      scheduleMode: resolvedScheduleMode,
-      scheduledAt: decision.scheduledAt ?? undefined,
-      prompt: decision.prompt ?? undefined,
-      instructions: decision.instructions ?? undefined,
-      enhanceAfterStock,
-      reasoning: decision.reasoning,
-    },
-    "planner: workflow resolved",
-  );
+  const platforms = resolvedTargets.map((t) => t.platform);
 
   return {
     resolvedWorkflow,
@@ -213,5 +196,14 @@ Return JSON with:
       hashtags: [],
     },
     usage: [{ node: "planner", provider: usage.provider, model: usage.model }],
-  };
+    logMessage: `Workflow: ${resolvedWorkflow} → ${platforms.join(", ")} (${resolvedScheduleMode})`,
+    logData: {
+      resolvedWorkflow,
+      platforms,
+      scheduleMode: resolvedScheduleMode,
+      ...(resolvedScheduledAt ? { scheduledAt: resolvedScheduledAt } : {}),
+      enhanceAfterStock,
+      reasoning: decision.reasoning,
+    },
+  } satisfies NodeReturn;
 });

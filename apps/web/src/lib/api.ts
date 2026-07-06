@@ -6,6 +6,26 @@ import type {
   PostDTO,
 } from "@visora/shared";
 
+export interface LogEntry {
+  id: string;
+  sequence: number;
+  node: string;
+  status: "started" | "succeeded" | "failed" | "skipped";
+  message: string;
+  data: Record<string, unknown> | null;
+  durationMs: number | null;
+  provider: string | null;
+  model: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface LogsResponse {
+  postId: string;
+  done: boolean;
+  logs: LogEntry[];
+}
+
 const BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 
@@ -76,4 +96,6 @@ export const api = {
     fd.append("file", file);
     return request<AssetDTO>("/assets", { method: "POST", body: fd });
   },
+  getLogs: (postId: string) =>
+    request<LogsResponse>(`/posts/${postId}/logs`),
 };

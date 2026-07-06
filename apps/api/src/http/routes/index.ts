@@ -3,6 +3,7 @@ import { assertMembership, authenticate } from "../middleware/auth.js";
 import * as auth from "../controllers/auth.controller.js";
 import * as posts from "../controllers/post.controller.js";
 import * as assets from "../controllers/asset.controller.js";
+import * as logs from "../controllers/log.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -285,6 +286,37 @@ If the post has a future \`schedule.runAt\`, a delayed BullMQ job is created tha
           params: objectIdParam,
         },
       }, assets.getOne);
+
+      // Logs
+      r.get("/posts/:id/logs", {
+        schema: {
+          tags: ["logs"],
+          summary: "Get pipeline execution logs",
+          description: `Returns all AgentLog entries for a post in chronological order. Each entry describes one node execution event (started / succeeded / failed) plus pipeline-level start and completion events.
+
+The \`done\` flag in the response indicates whether the pipeline has finished (either succeeded or failed). Poll this endpoint until \`done\` is true, or use the SSE stream endpoint for real-time updates.`,
+          security: bearer,
+          params: objectIdParam,
+        },
+      }, logs.getLogs);
+
+      r.get("/posts/:id/logs/stream", {
+        schema: {
+          tags: ["logs"],
+          summary: "Stream pipeline logs (SSE)",
+          description: `Server-Sent Events stream of pipeline execution logs for a post.
+
+Sends all existing log entries immediately on connect, then pushes new entries as they are written (polling every 500 ms). Emits three event types:
+- \`connected\` — fired once after initial catch-up; includes \`{ postId, logCount }\`
+- \`log\` — one per AgentLog entry; same shape as \`GET /posts/:id/logs\` items
+- \`done\` — fired when the pipeline completes or fails; stream closes after this
+- \`timeout\` — fired if the stream is still open after 10 minutes
+
+Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token via query string or a pre-authorized cookie since \`EventSource\` does not support custom headers.`,
+          security: bearer,
+          params: objectIdParam,
+        },
+      }, logs.streamLogs);
     },
     { prefix: "/v1" },
   );

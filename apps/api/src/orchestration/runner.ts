@@ -7,9 +7,12 @@
  *  - Converts a PostDoc database document into the initial GraphState the pipeline expects
  *  - Injects the services container via `configurable` so nodes never import providers directly
  *  - Ties each run to a `thread_id` (= jobId) so the checkpointer can resume a crashed run
+ *  - Emits pipeline-level AgentLog events (sequence 0 = start, N+1 = complete/fail)
  */
 import { Command } from "@langchain/langgraph";
+import { Types } from "mongoose";
 import type { PostDoc } from "../db/models/index.js";
+import { AgentLogModel } from "../db/models/index.js";
 import { createContainer, type ServiceContainer } from "../config/container.js";
 import { logger } from "../lib/logger.js";
 import { buildGraph, type CompiledGraph } from "./graph.js";
@@ -65,6 +68,31 @@ function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
   };
 }
 
+/** Writes a pipeline-level AgentLog entry (node = "pipeline"). */
+async function emitPipelineLog(
+  base: {
+    workspaceId: Types.ObjectId | undefined;
+    postId: Types.ObjectId | undefined;
+    jobId: Types.ObjectId | undefined;
+    threadId: string;
+  },
+  status: "started" | "succeeded" | "failed",
+  sequence: number,
+  message: string,
+  data?: Record<string, unknown>,
+  err?: Error,
+) {
+  await AgentLogModel.create({
+    ...base,
+    node: "pipeline",
+    sequence,
+    status,
+    message,
+    ...(data ? { data } : {}),
+    ...(err ? { error: { message: err.message, stack: err.stack } } : {}),
+  }).catch((e) => logger.error({ e }, "failed writing pipeline log"));
+}
+
 /**
  * Executes the full graph for a post. Called by the BullMQ worker. The services
  * container is injected via `configurable` so nodes never import providers; the
@@ -72,21 +100,45 @@ function initialState(post: PostDoc, jobId: string): Partial<GraphStateType> {
  */
 export async function runPostGraph(post: PostDoc, jobId: string) {
   const { graph, services: svc } = await getGraph();
-  logger.info(
-    { postId: post._id.toString(), workflow: post.workflow, jobId },
-    "running post graph",
-  );
+  const postId = post._id.toString();
 
-  const result = await graph.invoke(initialState(post, jobId), {
-    configurable: { services: svc, thread_id: jobId },
-    recursionLimit: 50,
+  const base = {
+    workspaceId: Types.ObjectId.isValid(post.workspaceId.toString())
+      ? new Types.ObjectId(post.workspaceId.toString())
+      : undefined,
+    postId: new Types.ObjectId(postId),
+    jobId: Types.ObjectId.isValid(jobId) ? new Types.ObjectId(jobId) : undefined,
+    threadId: jobId,
+  };
+
+  logger.info({ postId, workflow: post.workflow, jobId }, "running post graph");
+
+  // sequence 0 = pipeline start (before any node runs)
+  await emitPipelineLog(base, "started", 0, `Pipeline started — ${post.workflow}`, {
+    workflow: post.workflow,
+    scheduleMode: post.schedule?.mode ?? "instant",
   });
 
-  logger.info(
-    { postId: post._id.toString(), status: result.status },
-    "post graph finished",
-  );
-  return result;
+  try {
+    const result = await graph.invoke(initialState(post, jobId), {
+      configurable: { services: svc, thread_id: jobId },
+      recursionLimit: 50,
+    });
+
+    const finalSeq = (result.seq ?? 0) + 1;
+    await emitPipelineLog(base, "succeeded", finalSeq, `Pipeline completed — ${result.status}`, {
+      finalStatus: result.status,
+      nodeCount: result.seq ?? 0,
+    });
+
+    logger.info({ postId, status: result.status }, "post graph finished");
+    return result;
+  } catch (err) {
+    const e = err as Error;
+    await emitPipelineLog(base, "failed", 9999, `Pipeline failed — ${e.message}`, undefined, e);
+    logger.error({ postId, err: e.message }, "post graph failed");
+    throw err;
+  }
 }
 
 /**
@@ -105,21 +157,42 @@ export async function resumePostGraph(
 ) {
   if (!post.jobId) throw new Error(`resumePostGraph: post ${post._id} has no jobId — cannot resume`);
   const { graph, services: svc } = await getGraph();
+  const postId = post._id.toString();
   const threadId = post.jobId.toString();
 
-  logger.info(
-    { postId: post._id.toString(), approved: decision.approved },
-    "resuming post graph after review",
-  );
+  const base = {
+    workspaceId: Types.ObjectId.isValid(post.workspaceId.toString())
+      ? new Types.ObjectId(post.workspaceId.toString())
+      : undefined,
+    postId: new Types.ObjectId(postId),
+    jobId: new Types.ObjectId(threadId),
+    threadId,
+  };
 
-  const result = await graph.invoke(
-    new Command({ resume: decision }),
-    { configurable: { services: svc, thread_id: threadId }, recursionLimit: 50 },
-  );
+  logger.info({ postId, approved: decision.approved }, "resuming post graph after review");
 
-  logger.info(
-    { postId: post._id.toString(), status: result.status },
-    "post graph resumed and finished",
-  );
-  return result;
+  await emitPipelineLog(base, "started", 500, `Pipeline resumed — ${decision.approved ? "approved" : "rejected"}`, {
+    approved: decision.approved,
+    scheduleMode: decision.scheduleMode,
+  });
+
+  try {
+    const result = await graph.invoke(
+      new Command({ resume: decision }),
+      { configurable: { services: svc, thread_id: threadId }, recursionLimit: 50 },
+    );
+
+    const finalSeq = Math.max(result.seq ?? 0, 500) + 1;
+    await emitPipelineLog(base, "succeeded", finalSeq, `Pipeline completed — ${result.status}`, {
+      finalStatus: result.status,
+    });
+
+    logger.info({ postId, status: result.status }, "post graph resumed and finished");
+    return result;
+  } catch (err) {
+    const e = err as Error;
+    await emitPipelineLog(base, "failed", 9999, `Pipeline failed after resume — ${e.message}`, undefined, e);
+    logger.error({ postId, err: e.message }, "post graph failed after resume");
+    throw err;
+  }
 }

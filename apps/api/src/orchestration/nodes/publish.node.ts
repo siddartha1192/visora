@@ -6,6 +6,7 @@
  * Only runs on instant posts; scheduled posts skip straight to persist.
  */
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
 
 /**
  * Fan-out publish. For each target we pick the platform-matched variant and
@@ -59,8 +60,17 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
     }),
   );
 
+  const publishedCount = results.filter((r) => r.status === "published").length;
+  const failedCount = results.filter((r) => r.status === "failed").length;
+
   return {
     published: results,
     usage: [{ node: "publish", provider: "publishers" }],
-  };
+    logMessage: `Published to ${publishedCount}/${results.length} platform(s)${failedCount > 0 ? ` (${failedCount} failed)` : ""}`,
+    logData: {
+      publishedCount,
+      failedCount,
+      platforms: results.map((r) => ({ platform: r.platform, status: r.status, error: r.error })),
+    },
+  } satisfies NodeReturn;
 });

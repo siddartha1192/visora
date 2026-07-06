@@ -68,6 +68,7 @@ export const JOB_STATES = [
 export type JobState = (typeof JOB_STATES)[number];
 
 export const AGENT_NODES = [
+  "pipeline",   // pseudo-node for pipeline-level start/complete/fail events
   "ingest",
   "planner",
   "router",

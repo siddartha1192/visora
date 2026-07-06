@@ -18,6 +18,7 @@ import { Types } from "mongoose";
 import { PostModel } from "../../db/models/index.js";
 import { logger } from "../../lib/logger.js";
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
 
 interface ReviewDecision {
   approved: boolean;
@@ -64,10 +65,6 @@ export const reviewNode = defineNode("review", async (state) => {
           { _id: new Types.ObjectId(state.postId) },
           { $set: { "schedule.mode": "scheduled", "schedule.runAt": runAt } },
         );
-        logger.info(
-          { postId: state.postId, runAt: runAt.toISOString() },
-          "review: publish schedule set/updated",
-        );
       }
     } catch (err) {
       logger.warn({ postId: state.postId, err }, "review: could not parse scheduledAt");
@@ -90,5 +87,11 @@ export const reviewNode = defineNode("review", async (state) => {
     approvalStatus: approved ? "approved" : "rejected",
     scheduleMode: newScheduleMode,
     status: "running",
-  };
+    logMessage: approved ? "Post approved" : "Post rejected",
+    logData: {
+      approved,
+      scheduleMode: newScheduleMode,
+      ...(decision.scheduledAt ? { scheduledAt: decision.scheduledAt } : {}),
+    },
+  } satisfies NodeReturn;
 });

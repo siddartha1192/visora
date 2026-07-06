@@ -7,6 +7,7 @@
 import { Types } from "mongoose";
 import { PostModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
 
 /**
  * Entry node for every run. Loads the Post draft, validates the workspace owns
@@ -23,5 +24,9 @@ export const ingestNode = defineNode("ingest", async (state) => {
     { $set: { status: "processing" } },
   );
 
-  return { status: "running" };
+  return {
+    status: "running",
+    logMessage: "Post loaded, status → processing",
+    logData: { postId: state.postId, workflow: state.workflow },
+  } satisfies NodeReturn;
 });

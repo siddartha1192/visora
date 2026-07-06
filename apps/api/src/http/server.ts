@@ -49,6 +49,7 @@ export async function buildServer(): Promise<FastifyInstance> {
           { name: "auth", description: "Authentication — register, login, token refresh" },
           { name: "posts", description: "Content pipeline — create, review, approve, publish" },
           { name: "assets", description: "Media library — upload and retrieve images" },
+          { name: "logs", description: "Pipeline execution logs — real-time node events, status, and SSE streaming" },
         ],
       },
     });

@@ -5,6 +5,7 @@ import type { AssetDTO, PostDTO, WorkflowType } from "@visora/shared";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { InlineCalendar } from "@/components/ui/inline-calendar";
+import { LogDrawer } from "@/components/ui/log-drawer";
 import { api } from "@/lib/api";
 import {
   AlertCircle,
@@ -14,6 +15,7 @@ import {
   Send,
   XCircle,
   X,
+  ScrollText,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -110,6 +112,7 @@ export default function PostsPage() {
 
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);
+  const [logPost, setLogPost] = useState<PostDTO | null>(null);
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), []);
 
@@ -141,13 +144,13 @@ export default function PostsPage() {
     (rejectMutation.error as Error | null)?.message ?? null;
 
   useEffect(() => {
-    if (!lightboxUrl && !reviewPost) return;
+    if (!lightboxUrl && !reviewPost && !logPost) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { closeLightbox(); closeReview(); }
+      if (e.key === "Escape") { closeLightbox(); closeReview(); setLogPost(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxUrl, reviewPost, closeLightbox, closeReview]);
+  }, [lightboxUrl, reviewPost, logPost, closeLightbox, closeReview]);
 
   return (
     <>
@@ -173,6 +176,7 @@ export default function PostsPage() {
               post={post}
               onImageClick={setLightboxUrl}
               onReview={() => setReviewPost(post)}
+              onViewLogs={() => setLogPost(post)}
             />
           ))}
           {data && data.items.length === 0 && (
@@ -216,18 +220,35 @@ export default function PostsPage() {
           error={reviewError}
         />
       )}
+
+      {/* Log drawer */}
+      {logPost && (
+        <LogDrawer
+          postId={logPost.id}
+          postWorkflow={logPost.workflow}
+          onClose={() => setLogPost(null)}
+        />
+      )}
     </>
   );
 }
+
+/** Posts that have at least entered the pipeline queue (i.e. logs may exist). */
+const LOGGABLE_STATUSES = new Set([
+  "queued", "processing", "pending_review", "ready",
+  "scheduled", "publishing", "published", "failed", "rejected",
+]);
 
 function PostRow({
   post,
   onImageClick,
   onReview,
+  onViewLogs,
 }: {
   post: PostDTO;
   onImageClick: (url: string) => void;
   onReview: () => void;
+  onViewLogs: () => void;
 }) {
   const { data: asset } = useQuery<AssetDTO>({
     queryKey: ["asset", post.primaryAssetId],
@@ -354,6 +375,19 @@ function PostRow({
         <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{post.lastError}</span>
+        </div>
+      )}
+
+      {/* View Logs button — shown for any post that has entered the pipeline */}
+      {LOGGABLE_STATUSES.has(post.status) && (
+        <div className="flex justify-end">
+          <button
+            onClick={onViewLogs}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-muted-foreground"
+          >
+            <ScrollText className="h-3 w-3" />
+            View Logs
+          </button>
         </div>
       )}
     </Card>

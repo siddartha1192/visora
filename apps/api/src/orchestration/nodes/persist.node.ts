@@ -12,6 +12,7 @@
 import { Types } from "mongoose";
 import { AssetModel, PostModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
 
 /**
  * Terminal node. Writes variants onto the primary Asset, then updates the Post:
@@ -88,5 +89,15 @@ export const persistNode = defineNode("persist", async (state) => {
     },
   );
 
-  return { status: status === "failed" ? "failed" : wasPublishStep ? "published" : "ready" };
+  const graphStatus = status === "failed" ? "failed" : wasPublishStep ? "published" : "ready";
+  return {
+    status: graphStatus,
+    logMessage: `Post ${status}`,
+    logData: {
+      finalStatus: status,
+      wasPublishStep,
+      variantCount: variants.length,
+      targetCount: targets.length,
+    },
+  } satisfies NodeReturn;
 });
