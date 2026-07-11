@@ -1,9 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { assertMembership, authenticate } from "../middleware/auth.js";
+import { requireAdmin } from "../middleware/admin.js";
 import * as auth from "../controllers/auth.controller.js";
 import * as posts from "../controllers/post.controller.js";
 import * as assets from "../controllers/asset.controller.js";
 import * as logs from "../controllers/log.controller.js";
+import * as admin from "../controllers/admin.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -319,5 +321,114 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       }, logs.streamLogs);
     },
     { prefix: "/v1" },
+  );
+
+  // ── Admin routes — require JWT + isAdmin ────────────────────────────────────
+  app.register(
+    async (r) => {
+      r.addHook("preHandler", authenticate);
+      r.addHook("preHandler", requireAdmin);
+
+      r.get("/me", {
+        schema: { tags: ["admin"], summary: "Admin identity", security: bearer },
+      }, admin.adminMe);
+
+      r.get("/users", {
+        schema: { tags: ["admin"], summary: "List all users", security: bearer },
+      }, admin.listUsers);
+
+      r.post("/users", {
+        schema: {
+          tags: ["admin"], summary: "Create a user", security: bearer,
+          body: {
+            type: "object", required: ["name", "email", "password"],
+            properties: {
+              name: { type: "string" }, email: { type: "string" },
+              password: { type: "string", minLength: 8 }, isAdmin: { type: "boolean" },
+            },
+          },
+        },
+      }, admin.createUser);
+
+      r.patch("/users/:id", {
+        schema: {
+          tags: ["admin"], summary: "Update user", security: bearer, params: objectIdParam,
+          body: {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["active", "suspended"] },
+              isAdmin: { type: "boolean" },
+            },
+          },
+        },
+      }, admin.updateUser);
+
+      r.delete("/users/:id", {
+        schema: { tags: ["admin"], summary: "Delete user", security: bearer, params: objectIdParam },
+      }, admin.deleteUser);
+
+      r.get("/llm-configs", {
+        schema: { tags: ["admin"], summary: "List LLM configs", security: bearer },
+      }, admin.listLlmConfigs);
+
+      r.post("/llm-configs", {
+        schema: {
+          tags: ["admin"], summary: "Add LLM config", security: bearer,
+          body: {
+            type: "object", required: ["label", "provider", "apiKey"],
+            properties: {
+              label: { type: "string" },
+              provider: { type: "string", enum: ["openai", "anthropic", "google"] },
+              apiKey: { type: "string" },
+              chatModel: { type: "string" },
+              imageModel: { type: "string" },
+            },
+          },
+        },
+      }, admin.createLlmConfig);
+
+      r.patch("/llm-configs/:id", {
+        schema: {
+          tags: ["admin"], summary: "Update LLM config", security: bearer, params: objectIdParam,
+          body: {
+            type: "object",
+            properties: {
+              label: { type: "string" }, provider: { type: "string" },
+              apiKey: { type: "string" }, chatModel: { type: "string" },
+              imageModel: { type: "string" }, isActive: { type: "boolean" },
+            },
+          },
+        },
+      }, admin.updateLlmConfig);
+
+      r.delete("/llm-configs/:id", {
+        schema: { tags: ["admin"], summary: "Delete LLM config", security: bearer, params: objectIdParam },
+      }, admin.deleteLlmConfig);
+
+      r.get("/node-config", {
+        schema: { tags: ["admin"], summary: "Get node→LLM assignments", security: bearer },
+      }, admin.getNodeConfig);
+
+      r.put("/node-config", {
+        schema: {
+          tags: ["admin"], summary: "Save node→LLM assignments", security: bearer,
+          body: {
+            type: "object", required: ["assignments"],
+            properties: {
+              assignments: {
+                type: "object",
+                properties: {
+                  planner:     { type: ["string", "null"] },
+                  caption:     { type: ["string", "null"] },
+                  generation:  { type: ["string", "null"] },
+                  enhancement: { type: ["string", "null"] },
+                },
+              },
+            },
+          },
+        },
+      }, admin.updateNodeConfig);
+    },
+    { prefix: "/v1/admin" },
   );
 }

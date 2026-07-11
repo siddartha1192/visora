@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { api, setToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,16 @@ export default function LoginPage() {
         </div>
 
         <Card className="p-6">
+          {/* Admin link */}
+          <div className="mb-4 flex justify-end">
+            <Link
+              href="/admin/login"
+              className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              Admin Portal →
+            </Link>
+          </div>
+
           {/* Tab switcher */}
           <div className="mb-6 flex rounded-lg border border-border p-1">
             {(["login", "register"] as Tab[]).map((t) => (

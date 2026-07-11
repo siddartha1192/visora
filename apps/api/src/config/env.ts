@@ -24,6 +24,8 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16).default("dev-insecure-secret-change-me-please"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
+  // Comma-separated list of emails that are automatically promoted to admin on login
+  ADMIN_EMAILS: z.string().default(""),
 
   // S3 / storage
   AWS_REGION: z.string().default("us-east-1"),
