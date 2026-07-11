@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { setToken } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 const NAV = [
   { href: "/compose", label: "Compose", icon: Wand2 },
@@ -26,6 +27,7 @@ const NAV = [
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!localStorage.getItem("visora_token")) {
@@ -35,6 +37,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   function logout() {
     setToken(null);
+    queryClient.clear();
     router.replace("/login");
   }
 

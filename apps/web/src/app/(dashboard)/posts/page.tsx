@@ -16,6 +16,7 @@ import {
   XCircle,
   X,
   ScrollText,
+  ZoomIn,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -415,6 +416,8 @@ function ReviewModal({
     enabled: !!post.primaryAssetId,
   });
 
+  const [imageZoomed, setImageZoomed] = useState(false);
+
   // Initialise from the post's existing schedule (set by compose form / planner)
   const [scheduleMode, setScheduleMode] = useState<"instant" | "scheduled">(
     post.schedule?.mode === "scheduled" && post.schedule?.runAt ? "scheduled" : "instant",
@@ -466,16 +469,47 @@ function ReviewModal({
 
         <div className="max-h-[70vh] overflow-y-auto">
           <div className="p-6 space-y-5">
-            {/* Image preview */}
+            {/* Image preview — click to fullscreen */}
             {asset?.url ? (
-              <img
-                src={asset.url}
-                alt="Generated content"
-                className="w-full max-h-72 rounded-xl object-contain bg-secondary/50"
-              />
+              <button
+                className="group relative w-full cursor-zoom-in overflow-hidden rounded-xl bg-secondary/50"
+                onClick={() => setImageZoomed(true)}
+                title="Click to view full size"
+              >
+                <img
+                  src={asset.url}
+                  alt="Generated content"
+                  className="w-full max-h-72 object-contain"
+                />
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-colors group-hover:bg-black/25">
+                  <ZoomIn className="h-8 w-8 text-white opacity-0 drop-shadow-lg transition-opacity group-hover:opacity-100" />
+                </div>
+              </button>
             ) : (
               <div className="flex h-40 items-center justify-center rounded-xl bg-secondary">
                 <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+              </div>
+            )}
+
+            {/* Fullscreen image overlay */}
+            {imageZoomed && asset?.url && (
+              <div
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+                onClick={() => setImageZoomed(false)}
+              >
+                <button
+                  className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
+                  onClick={() => setImageZoomed(false)}
+                  aria-label="Close fullscreen"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <img
+                  src={asset.url}
+                  alt="Full-size preview"
+                  className="max-h-[95vh] max-w-[95vw] object-contain shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
               </div>
             )}
 
