@@ -17,6 +17,9 @@ import {
   X,
   ScrollText,
   ZoomIn,
+  RotateCcw,
+  RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -155,7 +158,11 @@ export default function PostsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-4xl space-y-6">
+      {/* Posts list — shifts left when log panel is open */}
+      <div className={cn(
+        "mx-auto max-w-4xl space-y-6 transition-all duration-200",
+        logPost && "mr-[416px]",
+      )}>
         <header>
           <h1 className="text-3xl font-bold tracking-tight">Posts</h1>
           <p className="text-muted-foreground">
@@ -187,6 +194,15 @@ export default function PostsPage() {
           )}
         </div>
       </div>
+
+      {/* Log panel — fixed right panel, no backdrop */}
+      {logPost && (
+        <LogDrawer
+          postId={logPost.id}
+          postWorkflow={logPost.workflow}
+          onClose={() => setLogPost(null)}
+        />
+      )}
 
       {/* Lightbox */}
       {lightboxUrl && (
@@ -221,15 +237,6 @@ export default function PostsPage() {
           error={reviewError}
         />
       )}
-
-      {/* Log drawer */}
-      {logPost && (
-        <LogDrawer
-          postId={logPost.id}
-          postWorkflow={logPost.workflow}
-          onClose={() => setLogPost(null)}
-        />
-      )}
     </>
   );
 }
@@ -251,11 +258,35 @@ function PostRow({
   onReview: () => void;
   onViewLogs: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const [retryOpen, setRetryOpen] = useState(false);
+  const retryRef = useRef<HTMLDivElement>(null);
+
   const { data: asset } = useQuery<AssetDTO>({
     queryKey: ["asset", post.primaryAssetId],
     queryFn: () => api.getAsset(post.primaryAssetId!),
     enabled: !!post.primaryAssetId,
   });
+
+  const retryMutation = useMutation({
+    mutationFn: (mode: "from_failed" | "full") => api.retryPost(post.id, mode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      setRetryOpen(false);
+    },
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!retryOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (retryRef.current && !retryRef.current.contains(e.target as Node)) {
+        setRetryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [retryOpen]);
 
   const isScheduledReady =
     post.status === "ready" &&
@@ -379,8 +410,64 @@ function PostRow({
         </div>
       )}
 
-      {/* View Logs button — shown for any post that has entered the pipeline */}
-      {LOGGABLE_STATUSES.has(post.status) && (
+      {/* Failed — retry actions + view logs */}
+      {post.status === "failed" && (
+        <div className="flex items-center justify-between">
+          {/* Retry dropdown */}
+          <div className="relative" ref={retryRef}>
+            <button
+              onClick={() => setRetryOpen((o) => !o)}
+              disabled={retryMutation.isPending}
+              className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+            >
+              <RotateCcw className={cn("h-3 w-3", retryMutation.isPending && "animate-spin")} />
+              {retryMutation.isPending ? "Retrying…" : "Retry"}
+              <ChevronDown className="h-3 w-3" />
+            </button>
+
+            {retryOpen && (
+              <div className="absolute left-0 bottom-full z-20 mb-1 w-56 rounded-lg border border-border bg-background shadow-xl">
+                {post.primaryAssetId && (
+                  <button
+                    onClick={() => retryMutation.mutate("from_failed")}
+                    className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left text-xs hover:bg-secondary rounded-t-lg transition-colors"
+                  >
+                    <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    <div>
+                      <p className="font-medium text-foreground">Retry publish only</p>
+                      <p className="text-muted-foreground">Re-attempt posting with existing generated content</p>
+                    </div>
+                  </button>
+                )}
+                <button
+                  onClick={() => retryMutation.mutate("full")}
+                  className={cn(
+                    "flex w-full items-start gap-2.5 px-3 py-2.5 text-left text-xs hover:bg-secondary transition-colors",
+                    post.primaryAssetId ? "rounded-b-lg border-t border-border" : "rounded-lg",
+                  )}
+                >
+                  <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
+                  <div>
+                    <p className="font-medium text-foreground">Rerun from scratch</p>
+                    <p className="text-muted-foreground">Regenerate content and retry everything</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onViewLogs}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-muted-foreground"
+          >
+            <ScrollText className="h-3 w-3" />
+            View Logs
+          </button>
+        </div>
+      )}
+
+      {/* View Logs button — shown for non-failed loggable posts */}
+      {LOGGABLE_STATUSES.has(post.status) && post.status !== "failed" && (
         <div className="flex justify-end">
           <button
             onClick={onViewLogs}

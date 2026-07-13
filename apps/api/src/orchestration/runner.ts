@@ -14,6 +14,7 @@ import { Types } from "mongoose";
 import type { PostDoc } from "../db/models/index.js";
 import { AgentLogModel } from "../db/models/index.js";
 import { createContainer, type ServiceContainer } from "../config/container.js";
+import { resolveNodeAdapters } from "./node-adapters.js";
 import { logger } from "../lib/logger.js";
 import { buildGraph, type CompiledGraph } from "./graph.js";
 import type { GraphStateType } from "./state.js";
@@ -120,8 +121,9 @@ export async function runPostGraph(post: PostDoc, jobId: string) {
   });
 
   try {
+    const nodeAdapters = await resolveNodeAdapters();
     const result = await graph.invoke(initialState(post, jobId), {
-      configurable: { services: svc, thread_id: jobId },
+      configurable: { services: svc, nodeAdapters, thread_id: jobId },
       recursionLimit: 50,
     });
 
@@ -177,9 +179,10 @@ export async function resumePostGraph(
   });
 
   try {
+    const nodeAdapters = await resolveNodeAdapters();
     const result = await graph.invoke(
       new Command({ resume: decision }),
-      { configurable: { services: svc, thread_id: threadId }, recursionLimit: 50 },
+      { configurable: { services: svc, nodeAdapters, thread_id: threadId }, recursionLimit: 50 },
     );
 
     const finalSeq = Math.max(result.seq ?? 0, 500) + 1;

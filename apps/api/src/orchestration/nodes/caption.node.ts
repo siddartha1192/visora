@@ -42,7 +42,8 @@ export const captionNode = defineNode("caption", async (state, ctx) => {
     state.input.context ??
     "Engaging social media post";
 
-  const { value, usage } = await ctx.services.languageModel.completeJson<{
+  const lm = ctx.nodeAdapters?.caption?.languageModel ?? ctx.services.languageModel;
+  const { value, usage } = await lm.completeJson<{
     caption: string;
     hashtags: string[];
   }>({

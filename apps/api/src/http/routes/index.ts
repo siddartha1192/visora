@@ -146,7 +146,7 @@ Returns **202 Accepted** immediately. Track status via \`GET /v1/posts/:id\`.`,
                   required: ["platform", "accountId"],
                   properties: {
                     platform: { type: "string", enum: ["instagram", "facebook", "x", "linkedin"] },
-                    accountId: { type: "string", pattern: "^[a-f0-9]{24}$" },
+                    accountId: { type: "string", minLength: 1 },
                   },
                 },
               },
@@ -247,6 +247,23 @@ If the post has a future \`schedule.runAt\`, a delayed BullMQ job is created tha
           params: objectIdParam,
         },
       }, posts.cancel);
+
+      r.post("/posts/:id/retry", {
+        schema: {
+          tags: ["posts"],
+          summary: "Retry a failed post",
+          description: "Retries a `failed` post. `mode=from_failed` re-runs only the publish step using existing generated content. `mode=full` resets the post and reruns the entire pipeline from scratch.",
+          security: bearer,
+          params: objectIdParam,
+          body: {
+            type: "object",
+            required: ["mode"],
+            properties: {
+              mode: { type: "string", enum: ["from_failed", "full"] },
+            },
+          },
+        },
+      }, posts.retry);
 
       // Assets
       r.post("/assets", {

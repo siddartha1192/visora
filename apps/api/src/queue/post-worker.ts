@@ -1,7 +1,7 @@
 import { Worker, type Job } from "bullmq";
 import { Types } from "mongoose";
 import type { Platform } from "@visora/shared";
-import { AssetModel, JobModel, PostModel } from "../db/models/index.js";
+import { AgentLogModel, AssetModel, JobModel, PostModel } from "../db/models/index.js";
 import { logger } from "../lib/logger.js";
 import { appLog } from "../lib/logging/index.js";
 import { runPostGraph, getServices } from "../orchestration/runner.js";
@@ -9,18 +9,16 @@ import { connection, POST_QUEUE_NAME } from "./connection.js";
 import type { ProcessPostJobData } from "./post-queue.js";
 
 /**
- * Publishes a "ready" post directly to every target social platform.
- * Called by the "publish_scheduled_post" delayed job — the full graph has already
- * run (content generated, approved, persisted as "ready"). This handler picks up
- * at the platform-publish step only.
+ * Core publish logic shared by the scheduled publish job and the retry-publish job.
+ * Reads asset variants from DB and calls the platform publishers for each target.
+ * Returns the final post status.
  */
-async function publishScheduledPost(postId: string): Promise<void> {
+async function runPublishStep(
+  postId: string,
+  context: string,
+): Promise<void> {
   const post = await PostModel.findById(new Types.ObjectId(postId));
-  if (!post) throw new Error(`scheduled publish: post ${postId} not found`);
-  if (post.status !== "ready") {
-    logger.warn({ postId }, "scheduled publish: post not in ready state, skipping");
-    return;
-  }
+  if (!post) throw new Error(`${context}: post ${postId} not found`);
 
   const services = await getServices();
 
@@ -28,7 +26,7 @@ async function publishScheduledPost(postId: string): Promise<void> {
     ? await AssetModel.findById(post.primaryAssetId)
     : null;
 
-  if (!asset) throw new Error(`scheduled publish: no asset for post ${postId}`);
+  if (!asset) throw new Error(`${context}: no asset for post ${postId}`);
 
   const captionText = post.caption?.text ?? "";
   const hashtags    = post.caption?.hashtags ?? [];
@@ -52,7 +50,7 @@ async function publishScheduledPost(postId: string): Promise<void> {
           platform: target.platform,
           accountId: target.accountId,
           status: "failed" as const,
-          error: "no optimized variant available for scheduled publish",
+          error: "no optimized variant available",
         };
       }
 
@@ -107,7 +105,143 @@ async function publishScheduledPost(postId: string): Promise<void> {
     },
   );
 
-  logger.info({ postId, finalStatus }, "scheduled publish completed");
+  logger.info({ postId, finalStatus }, `${context} completed`);
+}
+
+/**
+ * Publishes a "ready" post directly to every target social platform.
+ * Called by the "publish_scheduled_post" delayed job.
+ */
+async function publishScheduledPost(postId: string): Promise<void> {
+  const post = await PostModel.findById(new Types.ObjectId(postId));
+  if (!post) throw new Error(`scheduled publish: post ${postId} not found`);
+  if (post.status !== "ready") {
+    logger.warn({ postId }, "scheduled publish: post not in ready state, skipping");
+    return;
+  }
+  await runPublishStep(postId, "scheduled publish");
+}
+
+/**
+ * Re-attempts publishing for a post that previously failed at the publish step.
+ * Emits AgentLog entries so the retry is visible in the execution log drawer as a
+ * continuation after the original run's entries (sequences start at 10000).
+ */
+async function retryPublishPost(postId: string, workspaceId: string, jobId: string): Promise<void> {
+  const post = await PostModel.findById(new Types.ObjectId(postId));
+  if (!post) throw new Error(`retry publish: post ${postId} not found`);
+
+  const base = {
+    workspaceId: Types.ObjectId.isValid(workspaceId) ? new Types.ObjectId(workspaceId) : undefined,
+    postId: new Types.ObjectId(postId),
+    jobId: Types.ObjectId.isValid(jobId) ? new Types.ObjectId(jobId) : undefined,
+    threadId: jobId,
+  };
+
+  const writeLog = (
+    node: string,
+    seq: number,
+    status: "started" | "succeeded" | "failed",
+    message: string,
+    data?: Record<string, unknown>,
+    err?: Error,
+  ) =>
+    AgentLogModel.create({
+      ...base,
+      node,
+      sequence: seq,
+      status,
+      message,
+      ...(data ? { data } : {}),
+      ...(err ? { error: { message: err.message, stack: err.stack } } : {}),
+    }).catch((e) => logger.error({ e, node }, "failed writing retry log"));
+
+  await writeLog("pipeline", 10000, "started", "Pipeline retry — publishing from previous content");
+
+  const startedAt = Date.now();
+  await writeLog("publish", 10001, "started", "publish: started");
+
+  try {
+    const services = await getServices();
+    const asset = post.primaryAssetId ? await AssetModel.findById(post.primaryAssetId) : null;
+    if (!asset) throw new Error("no asset for post — cannot retry publish");
+
+    const captionText = post.caption?.text ?? "";
+    const hashtags    = post.caption?.hashtags ?? [];
+    const fullCaption = [
+      captionText,
+      hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" "),
+    ].filter(Boolean).join("\n\n");
+
+    const results = await Promise.all(
+      post.targets.map(async (target) => {
+        const variant =
+          asset.variants.find((v) => v.platform === target.platform) ?? asset.variants[0];
+        const imageUrl = variant?.cloudinaryUrl;
+        const publisher = services.publishers[target.platform as Platform];
+
+        if (!imageUrl) {
+          return { platform: target.platform, accountId: target.accountId, status: "failed" as const, error: "no optimized variant available" };
+        }
+        try {
+          const res = await publisher.publish({
+            platform: target.platform as Platform,
+            accountId: target.accountId.toString(),
+            imageUrl,
+            caption: fullCaption,
+          });
+          return { platform: target.platform, accountId: target.accountId, status: "published" as const, externalPostId: res.externalPostId, permalink: res.permalink };
+        } catch (err) {
+          return { platform: target.platform, accountId: target.accountId, status: "failed" as const, error: (err as Error).message };
+        }
+      }),
+    );
+
+    const allFailed    = results.every((r) => r.status === "failed");
+    const anyPublished = results.some((r) => r.status === "published");
+    const finalStatus  = allFailed ? "failed" : anyPublished ? "published" : "ready";
+    const failed       = results.filter((r) => r.status === "failed");
+    const publishedCount = results.filter((r) => r.status === "published").length;
+
+    const updatedTargets = post.targets.map((t) => {
+      const result = results.find((r) => r.platform === t.platform);
+      return {
+        ...t,
+        status: result?.status ?? t.status,
+        externalPostId: result && "externalPostId" in result ? result.externalPostId : t.externalPostId,
+        permalink:      result && "permalink"      in result ? result.permalink      : t.permalink,
+        error:          result && "error"          in result ? result.error          : t.error,
+      };
+    });
+
+    await PostModel.updateOne(
+      { _id: post._id },
+      { $set: { status: finalStatus, targets: updatedTargets, "schedule.publishedAt": new Date() } },
+    );
+
+    const failureSummary = failed.map((r) => `${r.platform}: ${r.error ?? "unknown error"}`).join(" | ");
+    const publishMessage = failed.length > 0
+      ? `Published to ${publishedCount}/${results.length} platform(s) — ${failureSummary}`
+      : `Published to ${publishedCount}/${results.length} platform(s)`;
+
+    const durationMs = Date.now() - startedAt;
+    await writeLog("publish", 10001, "succeeded", publishMessage, {
+      publishedCount, failedCount: failed.length,
+      platforms: results.map((r) => ({ platform: r.platform, status: r.status, error: "error" in r ? r.error : undefined })),
+    });
+    await writeLog("pipeline", 10000, allFailed ? "failed" : "succeeded",
+      `Pipeline retry completed — ${finalStatus}`, { finalStatus, durationMs });
+
+    logger.info({ postId, finalStatus }, "retry publish completed");
+  } catch (err) {
+    const e = err as Error;
+    const durationMs = Date.now() - startedAt;
+    await writeLog("publish", 10001, "failed", `publish: failed — ${e.message}`, undefined, e);
+    await writeLog("pipeline", 10000, "failed", `Pipeline retry failed — ${e.message}`, { durationMs }, e);
+    await PostModel.updateOne({ _id: post._id }, { $set: { status: "failed", lastError: e.message } });
+    logger.error({ postId, err: e.message }, "retry publish failed");
+    throw err;
+  }
 }
 
 /**
@@ -126,6 +260,13 @@ export function startPostWorker() {
         logger.info({ postId }, "worker: publishing scheduled post");
         await publishScheduledPost(postId);
         return { status: "published" };
+      }
+
+      // ── Retry publish (re-attempt failed platform calls) ──────────────────
+      if (job.name === "retry_publish_post") {
+        logger.info({ postId }, "worker: retrying publish");
+        await retryPublishPost(postId, workspaceId, jobId);
+        return { status: "done" };
       }
 
       // ── Full pipeline (content generation + review + persist) ─────────────
@@ -191,7 +332,10 @@ export function startPostWorker() {
           { $set: { status: "failed", lastError: err.message } },
         );
       }
-    } else if (job.name === "publish_scheduled_post") {
+    } else if (
+      job.name === "publish_scheduled_post" ||
+      job.name === "retry_publish_post"
+    ) {
       const finalAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
       if (finalAttempt) {
         await PostModel.updateOne(

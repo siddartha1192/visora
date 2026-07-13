@@ -10,8 +10,8 @@ export const platformSchema = z.enum(PLATFORMS);
 
 export const publishTargetSchema = z.object({
   platform: platformSchema,
-  /** The connected social account on the workspace to publish through. */
-  accountId: objectIdSchema,
+  /** The external platform account ID (e.g. Instagram Business Account ID). */
+  accountId: z.string().min(1),
 });
 export type PublishTargetInput = z.infer<typeof publishTargetSchema>;
 

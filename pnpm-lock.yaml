@@ -44,6 +44,9 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^4.2.0
         version: 4.2.0
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@langchain/core':
         specifier: ^0.3.3
         version: 0.3.80(openai@4.104.0(zod@3.25.76))
@@ -506,6 +509,10 @@ packages:
 
   '@fastify/swagger@8.15.0':
     resolution: {integrity: sha512-zy+HEEKFqPMS2sFUsQU5X0MHplhKJvWeohBwTCkBAJA/GDYGLGUWQaETEhptiqxK7Hs0fQB9B4MDb3pbwIiCwA==}
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -2797,6 +2804,8 @@ snapshots:
       yaml: 2.9.0
     transitivePeerDependencies:
       - supports-color
+
+  '@google/generative-ai@0.24.1': {}
 
   '@img/colour@1.1.0': {}
 

@@ -112,8 +112,9 @@ Return JSON with:
     ? `{ "workflow": "ai_enhance" | "passthrough", "instructions"?: string, "platforms": string[], "scheduleMode": "instant" | "scheduled", "scheduledAt"?: string, "reasoning": string }`
     : `{ "workflow": "stock_discovery" | "ai_generate" | "scrape", "prompt"?: string, "sourceUrl"?: string, "context"?: string, "enhanceAfterStock"?: boolean, "enhanceInstructions"?: string, "platforms": string[], "scheduleMode": "instant" | "scheduled", "scheduledAt"?: string, "reasoning": string }`;
 
+  const lm = ctx.nodeAdapters?.planner?.languageModel ?? ctx.services.languageModel;
   const { value: decision, usage } =
-    await ctx.services.languageModel.completeJson<PlannerDecision>({
+    await lm.completeJson<PlannerDecision>({
       system: systemPrompt,
       user: `User brief: "${brief}"`,
       schemaHint,

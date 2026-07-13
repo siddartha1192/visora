@@ -33,6 +33,18 @@ export async function enqueuePost(data: ProcessPostJobData): Promise<string> {
 }
 
 /**
+ * Enqueues a "retry_publish_post" job that re-attempts publishing to all platforms
+ * for a post that previously failed at the publish step. The post already has
+ * generated content (asset variants + caption) so only the publish step reruns.
+ */
+export async function enqueueRetryPublish(data: ProcessPostJobData): Promise<string> {
+  const job = await postQueue.add("retry_publish_post", data, {
+    jobId: `retry_publish_${data.postId}_${Date.now()}`,
+  });
+  return job.id ?? data.postId;
+}
+
+/**
  * Enqueues a delayed "publish_scheduled_post" job that fires at runAt.
  * The worker's publish handler reads the post, calls the social platform publishers,
  * and transitions the post from "ready" → "published".

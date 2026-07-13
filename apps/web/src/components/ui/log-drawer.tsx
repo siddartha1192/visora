@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
   X,
+  RefreshCw,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -55,11 +56,20 @@ function formatDuration(ms: number | null) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return `${date}, ${time}`;
+}
+
 /**
  * Merges "started" + terminal events for the same sequence+node into one row.
  * A row is "pending" when only the "started" entry has arrived so far.
+ * When the overall pipeline is done, any orphaned "started" without a terminal
+ * are stale ghosts (crashed/retried runs) and are suppressed.
  */
-function processLogs(logs: LogEntry[]) {
+function processLogs(logs: LogEntry[], isDone: boolean) {
   const map = new Map<string, { started?: LogEntry; terminal?: LogEntry }>();
 
   for (const log of logs) {
@@ -75,6 +85,7 @@ function processLogs(logs: LogEntry[]) {
       entry: terminal ?? started!,
       isPending: !terminal && !!started,
     }))
+    .filter(({ isPending }) => !(isDone && isPending))
     .sort((a, b) => {
       const ds = a.entry.sequence - b.entry.sequence;
       if (ds !== 0) return ds;
@@ -132,8 +143,13 @@ function LogRow({ entry, isPending }: { entry: LogEntry; isPending: boolean }) {
               {meta.label}
             </span>
 
-            {/* Right: duration + expand toggle */}
+            {/* Right: timestamp + duration + expand toggle */}
             <div className="flex shrink-0 items-center gap-1.5">
+              {!isPending && (
+                <span className="font-mono text-[10px] text-muted-foreground/40">
+                  {formatTime(entry.createdAt)}
+                </span>
+              )}
               {entry.durationMs !== null && (
                 <span className="font-mono text-[10px] text-muted-foreground/50">
                   {formatDuration(entry.durationMs)}
@@ -201,15 +217,15 @@ interface LogDrawerProps {
 }
 
 export function LogDrawer({ postId, postWorkflow, onClose }: LogDrawerProps) {
-  const { data: logsData, isLoading } = useQuery<LogsResponse>({
+  const { data: logsData, isLoading, isFetching, refetch } = useQuery<LogsResponse>({
     queryKey: ["logs", postId],
     queryFn: () => api.getLogs(postId),
     // Poll every 800 ms while the pipeline is still running; stop once done.
     refetchInterval: (query) => (!query.state.data?.done ? 800 : false),
   });
 
-  const items = processLogs(logsData?.logs ?? []);
   const isDone = logsData?.done ?? false;
+  const items = processLogs(logsData?.logs ?? [], isDone);
   const hasFailed = items.some((i) => i.entry.status === "failed" && i.entry.node !== "pipeline");
 
   const pipelineStatus =
@@ -219,26 +235,28 @@ export function LogDrawer({ postId, postWorkflow, onClose }: LogDrawerProps) {
                  "done";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-      {/* Panel */}
-      <div
-        className="relative z-10 flex h-full w-full max-w-[420px] flex-col border-l border-border bg-background shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold">Execution Logs</h2>
-            <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-              {postWorkflow.replace(/_/g, " ")}
-              <span className="ml-1.5 font-mono text-muted-foreground/40">
-                ·{postId.slice(-8)}
-              </span>
-            </p>
-          </div>
+    <div className="fixed right-0 top-0 z-40 flex h-screen w-[400px] flex-col border-l border-border bg-background shadow-2xl">
+      {/* Header */}
+      <div className="flex items-start justify-between border-b border-border px-5 py-4">
+        <div>
+          <h2 className="text-sm font-semibold">Execution Logs</h2>
+          <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+            {postWorkflow.replace(/_/g, " ")}
+            <span className="ml-1.5 font-mono text-muted-foreground/40">
+              ·{postId.slice(-8)}
+            </span>
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+            aria-label="Refresh logs"
+            title="Refresh logs"
+          >
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+          </button>
           <button
             onClick={onClose}
             className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary"
@@ -247,62 +265,62 @@ export function LogDrawer({ postId, postWorkflow, onClose }: LogDrawerProps) {
             <X className="h-4 w-4" />
           </button>
         </div>
+      </div>
 
-        {/* Status banner */}
-        <div className={cn(
-          "flex items-center gap-2 border-b border-border px-5 py-2.5 text-xs font-medium",
-          pipelineStatus === "loading" && "text-muted-foreground",
-          pipelineStatus === "running" && "bg-blue-500/5 text-blue-400",
-          pipelineStatus === "done"    && "bg-emerald-500/5 text-emerald-400",
-          pipelineStatus === "failed"  && "bg-red-500/5 text-red-400",
-        )}>
-          {pipelineStatus === "loading" && (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading logs…</>
-          )}
-          {pipelineStatus === "running" && (
-            <><span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" /> Pipeline running — auto-refreshing</>
-          )}
-          {pipelineStatus === "done" && (
-            <><CheckCircle2 className="h-3.5 w-3.5" /> Pipeline completed successfully</>
-          )}
-          {pipelineStatus === "failed" && (
-            <><XCircle className="h-3.5 w-3.5" /> Pipeline finished with errors</>
-          )}
-        </div>
+      {/* Status banner */}
+      <div className={cn(
+        "flex items-center gap-2 border-b border-border px-5 py-2.5 text-xs font-medium",
+        pipelineStatus === "loading" && "text-muted-foreground",
+        pipelineStatus === "running" && "bg-blue-500/5 text-blue-400",
+        pipelineStatus === "done"    && "bg-emerald-500/5 text-emerald-400",
+        pipelineStatus === "failed"  && "bg-red-500/5 text-red-400",
+      )}>
+        {pipelineStatus === "loading" && (
+          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading logs…</>
+        )}
+        {pipelineStatus === "running" && (
+          <><span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" /> Pipeline running — auto-refreshing</>
+        )}
+        {pipelineStatus === "done" && (
+          <><CheckCircle2 className="h-3.5 w-3.5" /> Pipeline completed successfully</>
+        )}
+        {pipelineStatus === "failed" && (
+          <><XCircle className="h-3.5 w-3.5" /> Pipeline finished with errors</>
+        )}
+      </div>
 
-        {/* Timeline */}
-        <div className="flex-1 space-y-2 overflow-y-auto p-4">
-          {isLoading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          )}
+      {/* Timeline */}
+      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+        {isLoading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
 
-          {!isLoading && items.length === 0 && (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              No log entries yet.
-              <br />
-              <span className="text-xs text-muted-foreground/50">
-                The pipeline may still be queued.
-              </span>
-            </div>
-          )}
+        {!isLoading && items.length === 0 && (
+          <div className="py-16 text-center text-sm text-muted-foreground">
+            No log entries yet.
+            <br />
+            <span className="text-xs text-muted-foreground/50">
+              The pipeline may still be queued.
+            </span>
+          </div>
+        )}
 
-          {items.map(({ entry, isPending }) => (
-            <LogRow
-              key={`${entry.node}-${entry.sequence}-${entry.status}`}
-              entry={entry}
-              isPending={isPending}
-            />
-          ))}
-        </div>
+        {items.map(({ entry, isPending }) => (
+          <LogRow
+            key={`${entry.node}-${entry.sequence}-${entry.status}`}
+            entry={entry}
+            isPending={isPending}
+          />
+        ))}
+      </div>
 
-        {/* Footer */}
-        <div className="border-t border-border px-5 py-2.5 text-[10px] text-muted-foreground/40">
-          {logsData
-            ? `${logsData.logs.length} event${logsData.logs.length !== 1 ? "s" : ""}${!isDone ? " · refreshing every 800ms" : ""}`
-            : "Connecting…"}
-        </div>
+      {/* Footer */}
+      <div className="border-t border-border px-5 py-2.5 text-[10px] text-muted-foreground/40">
+        {logsData
+          ? `${logsData.logs.length} event${logsData.logs.length !== 1 ? "s" : ""}${!isDone ? " · refreshing every 800ms" : ""}`
+          : "Connecting…"}
       </div>
     </div>
   );

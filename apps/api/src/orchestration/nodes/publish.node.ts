@@ -65,15 +65,24 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
   );
 
   const publishedCount = results.filter((r) => r.status === "published").length;
-  const failedCount = results.filter((r) => r.status === "failed").length;
+  const failed = results.filter((r) => r.status === "failed");
+
+  const failureSummary = failed
+    .map((r) => `${r.platform}: ${r.error ?? "unknown error"}`)
+    .join(" | ");
+
+  const logMessage =
+    failed.length > 0
+      ? `Published to ${publishedCount}/${results.length} platform(s) — ${failureSummary}`
+      : `Published to ${publishedCount}/${results.length} platform(s)`;
 
   return {
     published: results,
     usage: [{ node: "publish", provider: "publishers" }],
-    logMessage: `Published to ${publishedCount}/${results.length} platform(s)${failedCount > 0 ? ` (${failedCount} failed)` : ""}`,
+    logMessage,
     logData: {
       publishedCount,
-      failedCount,
+      failedCount: failed.length,
       platforms: results.map((r) => ({ platform: r.platform, status: r.status, error: r.error })),
     },
   } satisfies NodeReturn;

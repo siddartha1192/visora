@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   function logout() {
     setAdminToken(null);
-    router.replace("/admin/login");
+    router.replace("/login");
   }
 
   return (

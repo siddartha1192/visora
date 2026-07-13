@@ -22,6 +22,7 @@ import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import type { AgentNode } from "@visora/shared";
 import { Types } from "mongoose";
 import type { ServiceContainer } from "../config/container.js";
+import type { NodeAdaptersMap } from "./node-adapters.js";
 import { AgentLogModel } from "../db/models/index.js";
 import { logger } from "../lib/logger.js";
 import { appLog } from "../lib/logging/index.js";
@@ -30,12 +31,15 @@ import type { GraphStateType, GraphUpdate } from "./state.js";
 /** Injected through LangGraph's `configurable` so nodes stay pure + testable. */
 export interface NodeContext {
   services: ServiceContainer;
+  /** Per-node LLM adapters resolved from admin-configured NodeConfig. Falls back to services when empty. */
+  nodeAdapters: NodeAdaptersMap;
 }
 
 export function getContext(config: LangGraphRunnableConfig): NodeContext {
   const services = config.configurable?.services as ServiceContainer | undefined;
   if (!services) throw new Error("NodeContext.services missing from config");
-  return { services };
+  const nodeAdapters = (config.configurable?.nodeAdapters as NodeAdaptersMap | undefined) ?? {};
+  return { services, nodeAdapters };
 }
 
 /**

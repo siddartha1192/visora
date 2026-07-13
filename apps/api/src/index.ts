@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { env } from "./config/env.js";
 import { connectMongo, disconnectMongo } from "./db/connection.js";
+import { seedLlmConfigs } from "./db/seed.js";
 import { logger } from "./lib/logger.js";
 import { buildServer } from "./http/server.js";
 import { postQueue } from "./queue/post-queue.js";
@@ -12,6 +13,7 @@ import { postQueue } from "./queue/post-queue.js";
  */
 async function main() {
   await connectMongo();
+  await seedLlmConfigs();
   const app = await buildServer();
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
   logger.info(`API listening on :${env.PORT}`);

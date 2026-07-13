@@ -48,6 +48,9 @@ const schema = z.object({
   PEXELS_API_KEY: z.string().optional(),
   UNSPLASH_ACCESS_KEY: z.string().optional(),
 
+  // Social publishers
+  INSTAGRAM_ACCESS_TOKEN: z.string().optional(),
+
   // CORS
   WEB_ORIGIN: z.string().default("http://localhost:3000"),
 });

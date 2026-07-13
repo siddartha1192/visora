@@ -26,9 +26,11 @@ function parseSize(size?: string): { width: number; height: number } {
 export class OpenAIImageGenerator implements ImageGenerator {
   readonly name = "openai";
   private client: OpenAI;
+  private imageModel: string;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  constructor(opts?: { apiKey?: string; imageModel?: string }) {
+    this.client = new OpenAI({ apiKey: opts?.apiKey ?? env.OPENAI_API_KEY });
+    this.imageModel = opts?.imageModel ?? env.OPENAI_IMAGE_MODEL;
   }
 
   async generate(params: GenerateImageParams): Promise<ImageResult> {
@@ -37,7 +39,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const res = await withRetry(
         () =>
           this.client.images.generate({
-            model: env.OPENAI_IMAGE_MODEL,
+            model: this.imageModel,
             prompt: params.prompt,
             size,
             n: 1,
@@ -63,7 +65,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const dims = parseSize(size);
       const usage: UsageMeta = {
         provider: this.name,
-        model: env.OPENAI_IMAGE_MODEL,
+        model: this.imageModel,
         imagesGenerated: 1,
       };
       return {
@@ -86,7 +88,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const res = await withRetry(
         () =>
           this.client.images.edit({
-            model: env.OPENAI_IMAGE_MODEL,
+            model: this.imageModel,
             image,
             prompt: params.instructions,
           } as Parameters<typeof this.client.images.edit>[0]),
@@ -114,7 +116,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
         height: 1024,
         usage: {
           provider: this.name,
-          model: env.OPENAI_IMAGE_MODEL,
+          model: this.imageModel,
           imagesGenerated: 1,
         },
       };
@@ -127,9 +129,11 @@ export class OpenAIImageGenerator implements ImageGenerator {
 export class OpenAILanguageModel implements LanguageModel {
   readonly name = "openai";
   private client: OpenAI;
+  private chatModel: string;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  constructor(opts?: { apiKey?: string; chatModel?: string }) {
+    this.client = new OpenAI({ apiKey: opts?.apiKey ?? env.OPENAI_API_KEY });
+    this.chatModel = opts?.chatModel ?? env.OPENAI_TEXT_MODEL;
   }
 
   async complete(args: { system: string; user: string }): Promise<{
@@ -140,7 +144,7 @@ export class OpenAILanguageModel implements LanguageModel {
       const res = await withRetry(
         () =>
           this.client.chat.completions.create({
-            model: env.OPENAI_TEXT_MODEL,
+            model: this.chatModel,
             messages: [
               { role: "system", content: args.system },
               { role: "user", content: args.user },
@@ -152,7 +156,7 @@ export class OpenAILanguageModel implements LanguageModel {
         text: res.choices[0]?.message?.content ?? "",
         usage: {
           provider: this.name,
-          model: env.OPENAI_TEXT_MODEL,
+          model: this.chatModel,
           promptTokens: res.usage?.prompt_tokens,
           completionTokens: res.usage?.completion_tokens,
         },

@@ -28,7 +28,7 @@ const WORKFLOW_OPTIONS: Array<{
   { id: "scrape", title: "Extract", desc: "Pull from a URL", icon: Globe },
 ];
 
-const PLACEHOLDER_ACCOUNT = "000000000000000000000000";
+const PLACEHOLDER_ACCOUNT = "17841480000696385";
 
 export default function ComposePage() {
   const [autonomousMode, setAutonomousMode] = useState(false);

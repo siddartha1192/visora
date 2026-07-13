@@ -2,7 +2,7 @@ import type { CreatePostInput, PostDTO } from "@visora/shared";
 import { Types } from "mongoose";
 import { JobModel, PostModel } from "../../db/models/index.js";
 import { NotFoundError, BadRequestError } from "../../lib/errors.js";
-import { enqueuePost, enqueueScheduledPublish } from "../../queue/post-queue.js";
+import { enqueuePost, enqueueRetryPublish, enqueueScheduledPublish } from "../../queue/post-queue.js";
 import { resumePostGraph } from "../../orchestration/runner.js";
 import { toPostDTO } from "./post.serializer.js";
 
@@ -45,7 +45,7 @@ export async function createPost(args: {
     },
     targets: input.targets.map((t) => ({
       platform: t.platform,
-      accountId: new Types.ObjectId(t.accountId),
+      accountId: t.accountId,
       status: "pending",
     })),
     schedule: {
@@ -153,6 +153,62 @@ export async function rejectPost(workspaceId: string, postId: string): Promise<P
   await resumePostGraph(post, { approved: false });
   const updated = await PostModel.findById(post._id);
   return toPostDTO(updated!);
+}
+
+/**
+ * Retries a failed post in one of two modes:
+ *  - "from_failed": re-runs only the publish step using existing generated content
+ *  - "full": resets the post and reruns the full pipeline from scratch
+ */
+export async function retryPost(
+  workspaceId: string,
+  postId: string,
+  mode: "from_failed" | "full",
+): Promise<PostDTO> {
+  const post = await PostModel.findOne({
+    _id: new Types.ObjectId(postId),
+    workspaceId: new Types.ObjectId(workspaceId),
+  });
+  if (!post) throw new NotFoundError("Post");
+  if (post.status !== "failed") {
+    throw new BadRequestError(`Post cannot be retried (status: ${post.status})`);
+  }
+
+  if (mode === "from_failed") {
+    if (!post.primaryAssetId) {
+      throw new BadRequestError("Post has no generated content — use full rerun instead");
+    }
+    // Mark as publishing so the UI shows progress and double-submits are blocked
+    post.status = "publishing";
+    post.lastError = undefined;
+    await post.save();
+
+    await enqueueRetryPublish({
+      postId: post._id.toString(),
+      jobId: post.jobId?.toString() ?? post._id.toString(),
+      workspaceId,
+    });
+  } else {
+    // Full rerun — create a new job and re-run the entire pipeline
+    const job = await JobModel.create({
+      workspaceId: new Types.ObjectId(workspaceId),
+      postId: post._id,
+      state: "pending",
+    });
+
+    post.status = "queued";
+    post.lastError = undefined;
+    post.jobId = job._id;
+    await post.save();
+
+    await enqueuePost({
+      postId: post._id.toString(),
+      jobId: job._id.toString(),
+      workspaceId,
+    });
+  }
+
+  return toPostDTO(post);
 }
 
 export async function cancelPost(

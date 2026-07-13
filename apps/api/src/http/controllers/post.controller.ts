@@ -7,6 +7,7 @@ import {
   getPost,
   listPosts,
   rejectPost,
+  retryPost,
 } from "../../modules/posts/post.service.js";
 import { accepted, ok } from "../reply.js";
 
@@ -63,4 +64,16 @@ export async function approve(req: FastifyRequest, reply: FastifyReply) {
 export async function reject(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
   return ok(reply, await rejectPost(req.auth!.workspaceId, id));
+}
+
+export async function retry(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  const { mode } = (req.body ?? {}) as { mode?: "from_failed" | "full" };
+  if (mode !== "from_failed" && mode !== "full") {
+    return reply.code(400).send({
+      ok: false,
+      error: { code: "INVALID_MODE", message: 'mode must be "from_failed" or "full"' },
+    });
+  }
+  return accepted(reply, await retryPost(req.auth!.workspaceId, id, mode));
 }

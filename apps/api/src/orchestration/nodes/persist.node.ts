@@ -54,7 +54,7 @@ export const persistNode = defineNode("persist", async (state) => {
     );
     return {
       platform: t.platform,
-      accountId: new Types.ObjectId(t.accountId),
+      accountId: t.accountId,
       assetVariantId: variant ? new Types.ObjectId(variant.variantId) : undefined,
       status: outcome ? outcome.status : ("pending" as const),
       externalPostId: outcome?.externalPostId,

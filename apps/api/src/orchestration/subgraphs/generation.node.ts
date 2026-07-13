@@ -20,8 +20,11 @@ export const generationNode = defineNode("generation", async (state, ctx) => {
   if (!prompt) throw new Error("generation: prompt is required");
 
   let finalPrompt = prompt;
+  const nodeAdapters = ctx.nodeAdapters?.generation;
+  const lm = nodeAdapters?.languageModel ?? ctx.services.languageModel;
+  const ig = nodeAdapters?.imageGenerator ?? ctx.services.imageGenerator;
   try {
-    const refined = await ctx.services.languageModel.complete({
+    const refined = await lm.complete({
       system:
         "Rewrite the user's idea into a vivid, detailed image-generation prompt. Return only the prompt.",
       user: prompt,
@@ -31,7 +34,7 @@ export const generationNode = defineNode("generation", async (state, ctx) => {
     /* fall back to raw prompt */
   }
 
-  const image = await ctx.services.imageGenerator.generate({ prompt: finalPrompt });
+  const image = await ig.generate({ prompt: finalPrompt });
 
   const { ref, url } = await storeImageAsset({
     services: ctx.services,

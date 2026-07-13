@@ -86,7 +86,8 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
       state.input.enhanceInstructions?.trim() ||
       "Enhance this photo for social media: improve lighting, color grading, contrast, and visual impact while keeping the subject natural.";
 
-    const enhanced = await ctx.services.imageGenerator.edit({
+    const ig = ctx.nodeAdapters?.enhancement?.imageGenerator ?? ctx.services.imageGenerator;
+    const enhanced = await ig.edit({
       source: img.bytes,
       sourceMime: img.mime,
       instructions,

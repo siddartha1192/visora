@@ -91,6 +91,11 @@ export const api = {
     }),
   rejectPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/reject`, { method: "POST" }),
+  retryPost: (id: string, mode: "from_failed" | "full") =>
+    request<PostDTO>(`/posts/${id}/retry`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    }),
   uploadAsset: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
