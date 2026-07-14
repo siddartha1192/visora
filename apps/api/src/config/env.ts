@@ -50,6 +50,9 @@ const schema = z.object({
 
   // Social publishers
   INSTAGRAM_ACCESS_TOKEN: z.string().optional(),
+  // Page Access Token for Facebook — in Meta's setup this is typically the
+  // same token used for Instagram (a long-lived Page Access Token).
+  FACEBOOK_ACCESS_TOKEN: z.string().optional(),
 
   // CORS
   WEB_ORIGIN: z.string().default("http://localhost:3000"),

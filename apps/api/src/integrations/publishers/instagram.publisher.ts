@@ -7,7 +7,7 @@ import type {
   PublishResult,
 } from "../interfaces/ports.js";
 
-const BASE = "https://graph.facebook.com/v19.0";
+const BASE = "https://graph.facebook.com/v21.0";
 
 interface GraphResponse {
   id?: string;
@@ -24,18 +24,20 @@ export class InstagramPublisher implements Publisher {
 
   async publish(params: PublishParams): Promise<PublishResult> {
     try {
-      // Step 1: create a media container (Instagram stages it before publishing)
+      // Step 1: create a media container (Instagram stages it before publishing).
+      // Parameters are sent as a form-encoded POST body — safer than query strings
+      // for long captions containing emojis, hashtags, and special characters.
       const containerRes = await withRetry<GraphResponse>(
         () =>
-          fetch(
-            `${BASE}/${params.accountId}/media?` +
-              new URLSearchParams({
-                image_url: params.imageUrl,
-                caption: params.caption,
-                access_token: this.accessToken,
-              }).toString(),
-            { method: "POST" },
-          ).then((r) => r.json() as Promise<GraphResponse>),
+          fetch(`${BASE}/${params.accountId}/media`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              image_url: params.imageUrl,
+              caption: params.caption,
+              access_token: this.accessToken,
+            }).toString(),
+          }).then((r) => r.json() as Promise<GraphResponse>),
         { label: "instagram.media.create" },
       );
       if (!containerRes.id) {
@@ -47,14 +49,14 @@ export class InstagramPublisher implements Publisher {
       // Step 2: publish the staged container
       const publishRes = await withRetry<GraphResponse>(
         () =>
-          fetch(
-            `${BASE}/${params.accountId}/media_publish?` +
-              new URLSearchParams({
-                creation_id: containerRes.id!,
-                access_token: this.accessToken,
-              }).toString(),
-            { method: "POST" },
-          ).then((r) => r.json() as Promise<GraphResponse>),
+          fetch(`${BASE}/${params.accountId}/media_publish`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              creation_id: containerRes.id!,
+              access_token: this.accessToken,
+            }).toString(),
+          }).then((r) => r.json() as Promise<GraphResponse>),
         { label: "instagram.media.publish" },
       );
       if (!publishRes.id) {

@@ -32,6 +32,7 @@ import { PlaywrightScraper } from "../integrations/scraping/playwright.adapter.j
 import { StubScraper } from "../integrations/scraping/stub.adapter.js";
 import { StubPublisher } from "../integrations/publishers/stub.publisher.js";
 import { InstagramPublisher } from "../integrations/publishers/instagram.publisher.js";
+import { FacebookPublisher } from "../integrations/publishers/facebook.publisher.js";
 
 /**
  * The service container is the ONLY place concrete adapters are instantiated.
@@ -107,6 +108,9 @@ export function createContainer(): ServiceContainer {
     PLATFORMS.map((p) => {
       if (p === "instagram" && env.INSTAGRAM_ACCESS_TOKEN) {
         return [p, new InstagramPublisher(env.INSTAGRAM_ACCESS_TOKEN)];
+      }
+      if (p === "facebook" && env.FACEBOOK_ACCESS_TOKEN) {
+        return [p, new FacebookPublisher(env.FACEBOOK_ACCESS_TOKEN)];
       }
       stubPlatforms.push(p);
       return [p, new StubPublisher(p)];
