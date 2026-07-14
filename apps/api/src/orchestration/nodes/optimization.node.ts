@@ -31,6 +31,7 @@ export const optimizationNode = defineNode("optimization", async (state, ctx) =>
       source,
       sourceUrl,
       spec,
+      prefix: state.authorEmail ?? `workspaces/${state.workspaceId}`,
     });
     variants.push({
       variantId: new Types.ObjectId().toHexString(),

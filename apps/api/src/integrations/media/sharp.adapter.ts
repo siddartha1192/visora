@@ -1,4 +1,5 @@
 import sharp, { type FitEnum } from "sharp";
+import { ulid } from "ulid";
 import type { PlatformImageSpec, StoredAssetRef } from "@visora/shared";
 import { logger } from "../../lib/logger.js";
 import { ProviderError } from "../../lib/errors.js";
@@ -26,6 +27,7 @@ export class SharpMediaOptimizer implements MediaOptimizer {
     source: StoredAssetRef;
     sourceUrl: string;
     spec: PlatformImageSpec;
+    prefix: string;
   }): Promise<ResizeResult> {
     const { source, spec } = args;
 
@@ -57,7 +59,7 @@ export class SharpMediaOptimizer implements MediaOptimizer {
       .webp({ quality: 85 })
       .toBuffer();
 
-    const variantKey = `variants/${spec.platform}/${source.s3Key.replace(/\.[^.]+$/, "")}.webp`;
+    const variantKey = `${args.prefix}/variants/${spec.platform}/${ulid()}.webp`;
     const putParams: PutObjectParams = {
       key: variantKey,
       body: resized,

@@ -37,6 +37,7 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
     services: ctx.services,
     workspaceId: state.workspaceId,
     jobId: state.jobId,
+    authorEmail: state.authorEmail,
     bytes: edited.bytes,
     mime: edited.mime,
     width: edited.width,

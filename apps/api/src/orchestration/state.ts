@@ -34,6 +34,8 @@ export const GraphState = Annotation.Root({
   jobId: Annotation<string>(),
   threadId: Annotation<string>(),
   workflow: Annotation<WorkflowType>(),
+  /** Sanitised author email used as the S3 folder prefix (e.g. "user_gmail.com"). */
+  authorEmail: Annotation<string | undefined>(),
 
   // --- inputs ---
   input: Annotation<{

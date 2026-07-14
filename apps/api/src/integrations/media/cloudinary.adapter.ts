@@ -30,12 +30,13 @@ export class CloudinaryOptimizer implements MediaOptimizer {
     sourceUrl: string;
     spec: import("@visora/shared").PlatformImageSpec;
     source: import("@visora/shared").StoredAssetRef;
+    prefix: string;
   }): Promise<ResizeResult> {
     const { spec, sourceUrl } = args;
     try {
       const uploaded = await withRetry(
         () => cloudinary.uploader.upload(sourceUrl, {
-          folder: `visora/${spec.platform}`,
+          folder: `${args.prefix}/variants/${spec.platform}`,
           resource_type: "image",
         }),
         { label: "cloudinary.upload", retries: 3, baseDelayMs: 1000, maxDelayMs: 10000 },

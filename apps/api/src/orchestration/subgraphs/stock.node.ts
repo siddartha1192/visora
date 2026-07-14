@@ -104,6 +104,7 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
     services: ctx.services,
     workspaceId: state.workspaceId,
     jobId: state.jobId,
+    authorEmail: state.authorEmail,
     bytes: finalBytes,
     mime: finalMime,
     width: best.width ?? 0,

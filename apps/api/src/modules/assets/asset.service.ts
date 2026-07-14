@@ -18,12 +18,15 @@ const EXT: Record<string, string> = {
  */
 export async function uploadAsset(args: {
   workspaceId: string;
+  /** Sanitised author email (e.g. "user_gmail.com") — used as the S3 folder prefix. */
+  userEmail?: string;
   bytes: Buffer;
   mime: string;
 }): Promise<AssetDTO> {
   const services = createContainer();
   const ext = EXT[args.mime] ?? "bin";
-  const key = `workspaces/${args.workspaceId}/uploads/${ulid()}.${ext}`;
+  const prefix = args.userEmail ?? `workspaces/${args.workspaceId}`;
+  const key = `${prefix}/uploads/${ulid()}.${ext}`;
 
   const stored = await services.objectStore.put({
     key,

@@ -40,6 +40,7 @@ export const generationNode = defineNode("generation", async (state, ctx) => {
     services: ctx.services,
     workspaceId: state.workspaceId,
     jobId: state.jobId,
+    authorEmail: state.authorEmail,
     bytes: image.bytes,
     mime: image.mime,
     width: image.width,

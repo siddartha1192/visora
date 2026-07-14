@@ -79,7 +79,7 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async signedUrl(key: string, expiresInSec = 3600): Promise<string> {
+  async signedUrl(key: string, expiresInSec = 604800): Promise<string> {
     return getSignedUrl(
       this.client,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),

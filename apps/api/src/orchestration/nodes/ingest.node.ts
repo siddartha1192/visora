@@ -5,7 +5,7 @@
  * Budget/credit pre-checks would also live here in the future.
  */
 import { Types } from "mongoose";
-import { PostModel } from "../../db/models/index.js";
+import { PostModel, UserModel } from "../../db/models/index.js";
 import { defineNode } from "../context.js";
 import type { NodeReturn } from "../context.js";
 
@@ -24,7 +24,16 @@ export const ingestNode = defineNode("ingest", async (state) => {
     { $set: { status: "processing" } },
   );
 
+  // Resolve the author's email to use as the S3 folder prefix.
+  // Falls back to undefined (asset-helper will use workspaceId instead).
+  let authorEmail: string | undefined;
+  if (post.authorId) {
+    const user = await UserModel.findById(post.authorId).select("email").lean();
+    if (user?.email) authorEmail = user.email.toLowerCase().replace("@", "_");
+  }
+
   return {
+    authorEmail,
     status: "running",
     logMessage: "Post loaded, status → processing",
     logData: { postId: state.postId, workflow: state.workflow },
