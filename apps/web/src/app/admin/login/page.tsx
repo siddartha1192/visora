@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, AlertCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { adminApi, setAdminToken } from "@/lib/admin-api";
+import { clearAuth, setToken } from "@/lib/api";
 
 const inputCls =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +24,12 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const res = await adminApi.login(email, password);
+      // Evict any previous session's cached data before entering the new admin session.
+      clearAuth();
+      queryClient.clear();
+      // Set both tokens — same JWT works for both regular and admin API calls.
       setAdminToken(res.tokens.accessToken);
+      setToken(res.tokens.accessToken);
       // Verify the account actually has admin access
       await adminApi.me();
       router.replace("/admin/users");

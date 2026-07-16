@@ -7,6 +7,7 @@ import {
   verifyCredentials,
   type AuthedUser,
 } from "../../modules/auth/auth.service.js";
+import { UserModel } from "../../db/models/index.js";
 import { created, ok } from "../reply.js";
 
 function issueTokens(req: FastifyRequest, user: AuthedUser) {
@@ -52,5 +53,15 @@ export async function refresh(req: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function me(req: FastifyRequest, reply: FastifyReply) {
-  return ok(reply, { auth: req.auth });
+  const user = req.auth?.userId
+    ? await UserModel.findById(req.auth.userId).lean()
+    : null;
+
+  return ok(reply, {
+    id: user?._id.toHexString() ?? req.auth?.userId ?? "",
+    name: user?.name ?? req.auth?.userName ?? "",
+    email: user?.email ?? req.auth?.userEmail ?? "",
+    avatarUrl: user?.avatarUrl ?? null,
+    isAdmin: user?.isAdmin ?? false,
+  });
 }

@@ -6,6 +6,7 @@ import * as posts from "../controllers/post.controller.js";
 import * as assets from "../controllers/asset.controller.js";
 import * as logs from "../controllers/log.controller.js";
 import * as admin from "../controllers/admin.controller.js";
+import * as prompts from "../controllers/prompt.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -306,6 +307,23 @@ If the post has a future \`schedule.runAt\`, a delayed BullMQ job is created tha
         },
       }, assets.getOne);
 
+      // Prompt utilities
+      r.post("/prompts/refine", {
+        schema: {
+          tags: ["prompts"],
+          summary: "Refine an image prompt",
+          description: "Uses the configured LLM to rewrite a rough prompt into a detailed, evocative image-generation prompt.",
+          security: bearer,
+          body: {
+            type: "object",
+            required: ["prompt"],
+            properties: {
+              prompt: { type: "string", minLength: 1, maxLength: 1000 },
+            },
+          },
+        },
+      }, prompts.refinePrompt);
+
       // Logs
       r.get("/posts/:id/logs", {
         schema: {
@@ -349,6 +367,20 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       r.get("/me", {
         schema: { tags: ["admin"], summary: "Admin identity", security: bearer },
       }, admin.adminMe);
+
+      r.get("/analytics", {
+        schema: {
+          tags: ["admin"],
+          summary: "Usage analytics",
+          security: bearer,
+          querystring: {
+            type: "object",
+            properties: {
+              range: { type: "string", enum: ["7d", "30d", "90d", "all"], default: "30d" },
+            },
+          },
+        },
+      }, admin.getAnalytics);
 
       r.get("/users", {
         schema: { tags: ["admin"], summary: "List all users", security: bearer },

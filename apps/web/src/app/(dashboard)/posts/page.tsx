@@ -114,11 +114,11 @@ export default function PostsPage() {
     refetchInterval: 5000,
   });
 
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; post: PostDTO } | null>(null);
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);
   const [logPost, setLogPost] = useState<PostDTO | null>(null);
 
-  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
+  const closeLightbox = useCallback(() => setLightbox(null), []);
 
   const approveMutation = useMutation({
     mutationFn: (opts: { scheduledAt?: string; scheduleMode: "instant" | "scheduled" }) =>
@@ -148,13 +148,13 @@ export default function PostsPage() {
     (rejectMutation.error as Error | null)?.message ?? null;
 
   useEffect(() => {
-    if (!lightboxUrl && !reviewPost && !logPost) return;
+    if (!lightbox && !reviewPost && !logPost) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { closeLightbox(); closeReview(); setLogPost(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxUrl, reviewPost, logPost, closeLightbox, closeReview]);
+  }, [lightbox, reviewPost, logPost, closeLightbox, closeReview]);
 
   return (
     <>
@@ -182,7 +182,7 @@ export default function PostsPage() {
             <PostRow
               key={post.id}
               post={post}
-              onImageClick={setLightboxUrl}
+              onImageClick={(url) => setLightbox({ url, post })}
               onReview={() => setReviewPost(post)}
               onViewLogs={() => setLogPost(post)}
             />
@@ -204,25 +204,60 @@ export default function PostsPage() {
         />
       )}
 
-      {/* Lightbox */}
-      {lightboxUrl && (
+      {/* Lightbox — full-size image + caption */}
+      {lightbox && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
           onClick={closeLightbox}
         >
           <button
-            className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
             onClick={closeLightbox}
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
-          <img
-            src={lightboxUrl}
-            alt="Full-size preview"
-            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+
+          <div
+            className="flex w-full max-w-3xl flex-col gap-4 max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
-          />
+          >
+            {/* Full-size image — capped so caption is always visible below */}
+            <img
+              src={lightbox.url}
+              alt="Full-size preview"
+              className="w-full rounded-xl object-contain shadow-2xl"
+              style={{ maxHeight: "58vh" }}
+            />
+
+            {/* Caption / prompt panel — always visible below the image */}
+            {(() => {
+              const captionText = lightbox.post.caption?.text;
+              const hashtags = lightbox.post.caption?.hashtags ?? [];
+              const fallback =
+                (lightbox.post.input as Record<string, string | undefined>)?.prompt ??
+                (lightbox.post.input as Record<string, string | undefined>)?.brief ??
+                (lightbox.post.input as Record<string, string | undefined>)?.instructions ??
+                (lightbox.post.input as Record<string, string | undefined>)?.sourceUrl;
+
+              if (!captionText && hashtags.length === 0 && !fallback) return null;
+
+              return (
+                <div className="shrink-0 w-full rounded-xl border border-white/10 bg-black/60 px-5 py-4 backdrop-blur-md text-center">
+                  {captionText ? (
+                    <p className="text-sm leading-relaxed text-white whitespace-pre-wrap">{captionText}</p>
+                  ) : fallback ? (
+                    <p className="text-sm leading-relaxed text-white/50 whitespace-pre-wrap italic">{fallback}</p>
+                  ) : null}
+                  {hashtags.length > 0 && (
+                    <p className={cn("text-xs text-primary/80", captionText && "mt-2")}>
+                      {hashtags.map((h: string) => `#${h}`).join(" ")}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 

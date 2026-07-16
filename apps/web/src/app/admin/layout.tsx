@@ -3,19 +3,46 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { Shield, Users, Cpu, GitBranch, LogOut } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Wand2,
+  CalendarClock,
+  Images,
+  ListChecks,
+  Settings,
+  Sparkles,
+  Bot,
+  Users,
+  Cpu,
+  GitBranch,
+  BarChart3,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { adminApi, setAdminToken } from "@/lib/admin-api";
+import { clearAuth } from "@/lib/api";
+import { adminApi } from "@/lib/admin-api";
+import { UserMenu } from "@/components/ui/user-menu";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const NAV = [
-  { href: "/admin/users",  label: "Users",       icon: Users },
-  { href: "/admin/llms",   label: "LLM Configs", icon: Cpu },
-  { href: "/admin/nodes",  label: "Node Config", icon: GitBranch },
+const USER_NAV = [
+  { href: "/compose",    label: "Compose",    icon: Wand2         },
+  { href: "/autonomous", label: "Autonomous", icon: Bot           },
+  { href: "/posts",      label: "Posts",      icon: ListChecks    },
+  { href: "/calendar",   label: "Calendar",   icon: CalendarClock },
+  { href: "/library",    label: "Library",    icon: Images        },
+  { href: "/settings",   label: "Settings",   icon: Settings      },
+];
+
+const ADMIN_NAV = [
+  { href: "/admin/analytics", label: "Analytics",   icon: BarChart3  },
+  { href: "/admin/users",     label: "Users",       icon: Users      },
+  { href: "/admin/llms",      label: "LLM Configs", icon: Cpu        },
+  { href: "/admin/nodes",     label: "Node Config", icon: GitBranch  },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (pathname === "/admin/login") return;
@@ -23,56 +50,86 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [pathname, router]);
 
   function logout() {
-    setAdminToken(null);
+    clearAuth();
+    queryClient.clear();
     router.replace("/login");
   }
 
-  return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="flex h-screen w-56 shrink-0 flex-col border-r border-border bg-secondary/20 sticky top-0">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 border-b border-border px-5 py-4">
-          <Shield className="h-5 w-5 text-primary" />
-          <span className="font-semibold tracking-tight">Admin</span>
-        </div>
+  if (pathname === "/admin/login") return <>{children}</>;
 
-        {/* Nav */}
-        <nav className="flex flex-col gap-0.5 p-3 flex-1">
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href);
+  return (
+    <div className="flex min-h-screen">
+      {/* Sidebar — identical structure to dashboard layout */}
+      <aside className="glass sticky top-0 hidden h-screen w-64 flex-col gap-2 p-4 md:flex">
+        <Link href="/compose" className="mb-6 flex items-center gap-2 px-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          <span className="text-xl font-bold tracking-tight">Visora</span>
+        </Link>
+
+        {/* Regular user nav */}
+        <nav className="flex flex-col gap-1">
+          {USER_NAV.map((item) => {
+            const active = pathname.startsWith(item.href);
+            const isAutonomous = item.href === "/autonomous";
             return (
               <Link
-                key={href}
-                href={href}
+                key={item.href}
+                href={item.href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    ? "bg-primary/15 text-primary"
+                    : isAutonomous
+                    ? "text-accent hover:bg-accent/10 hover:text-accent"
+                    : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {label}
+                <item.icon className="h-4 w-4" />
+                {item.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Sign out */}
-        <div className="border-t border-border p-3">
-          <button
-            onClick={logout}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
+        {/* Admin section */}
+        <div className="mt-4">
+          <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+            Administration
+          </p>
+          <nav className="flex flex-col gap-1">
+            {ADMIN_NAV.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </aside>
 
-      {/* Content */}
-      <main className="flex-1 overflow-auto p-8">{children}</main>
+      {/* Main column */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Topbar — identical to dashboard topbar */}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-end gap-3 border-b border-border/50 bg-background/80 px-6 backdrop-blur-md">
+          <ThemeToggle compact />
+          <div className="h-5 w-px bg-border" />
+          <UserMenu onLogout={logout} />
+        </header>
+
+        <main className="flex-1 px-6 py-8 md:px-10">{children}</main>
+      </div>
     </div>
   );
 }
