@@ -1,0 +1,153 @@
+S3 Integration Setup Guide
+==========================
+
+
+STEP 1 — Create the S3 Bucket
+------------------------------
+1. Go to https://console.aws.amazon.com/s3 and sign in.
+2. Click "Create bucket".
+3. Set:
+   - Bucket name: visora-assets (or any name — update S3_BUCKET in .env to match)
+   - AWS Region: choose the region closest to your server (e.g. ap-south-1 for India)
+4. Under "Block Public Access settings", leave all four checkboxes CHECKED
+   (images are served via pre-signed URLs, not public access).
+5. Leave everything else as default → click "Create bucket".
+
+NOTE: The bucket name you choose must exactly match the S3_BUCKET value in apps/api/.env.
+NOTE: The region you choose must exactly match the AWS_REGION value in apps/api/.env.
+      Mismatch causes: "[s3] The bucket you are attempting to access must be addressed
+      using the specified endpoint." — check your bucket's region in the Properties tab.
+
+
+STEP 2 — Configure CORS on the Bucket
+--------------------------------------
+This allows pre-signed URLs to be fetched from browsers (needed when the UI displays images).
+
+1. Open the bucket → "Permissions" tab → scroll to "Cross-origin resource sharing (CORS)" → "Edit".
+2. Paste the following JSON:
+
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST"],
+    "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+
+3. Replace "https://yourdomain.com" with your actual production frontend domain.
+4. Click "Save changes".
+
+
+STEP 3 — Create an IAM User with S3 Permissions
+-------------------------------------------------
+1. Go to https://console.aws.amazon.com/iam → "Users" → "Create user".
+2. User name: visora-api → click Next.
+3. Set permissions: choose "Attach policies directly".
+4. Search for and select "AmazonS3FullAccess" → Next → "Create user".
+
+Note: For tighter production security, you can scope this down to only:
+  - s3:GetObject
+  - s3:PutObject
+on resource: arn:aws:s3:::YOUR_BUCKET_NAME/*
+AmazonS3FullAccess is fine to start with.
+
+
+STEP 4 — Generate Access Keys
+------------------------------
+1. Click on the "visora-api" user you just created.
+2. Go to "Security credentials" tab → scroll to "Access keys" → "Create access key".
+3. Use case: select "Application running outside AWS" → Next → "Create access key".
+4. COPY BOTH VALUES IMMEDIATELY — the secret key is only shown once:
+   - Access key ID:     AKIA...
+   - Secret access key: wJalrXUtn...
+
+
+STEP 5 — Update apps/api/.env
+------------------------------
+Fill in these variables (they already exist in the file):
+
+  AWS_REGION=<your-bucket-region>        e.g. ap-south-1
+  AWS_ACCESS_KEY_ID=<your-access-key-id>
+  AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
+  S3_BUCKET=<your-bucket-name>
+
+Leave these as-is (only for LocalStack / MinIO):
+  S3_ENDPOINT=
+  S3_FORCE_PATH_STYLE=false
+
+
+STEP 6 — Restart the Server
+-----------------------------
+Run: pnpm dev
+
+On startup the service container detects both AWS keys and switches from
+LocalDiskObjectStore to S3ObjectStore automatically. You will no longer see
+"objectStore" in the stub-adapters warning log.
+
+
+STEP 7 — Verify It Is Working
+-------------------------------
+1. Create a test post (any workflow) through the UI.
+2. Open the S3 bucket in the AWS console → "Objects" tab.
+3. You should see files appear under the logged-in user's email folder, e.g.:
+
+   vicidas2021_gmail.com/
+   ├── uploads/          ← direct image uploads (POST /assets)
+   ├── assets/           ← AI-generated / stock / scraped images
+   └── variants/
+       ├── instagram/    ← resized 1080x1080 for Instagram
+       └── facebook/     ← resized for Facebook
+
+4. In the execution log drawer, expand the "Optimisation" node (click ▶).
+   The detail panel will show:
+     optimizer : sharp
+     variantKey: vicidas2021_gmail.com/variants/instagram/....webp
+
+
+S3 FOLDER STRUCTURE (per user)
+--------------------------------
+Images are organised by the logged-in user's email address (@ replaced with _)
+and then by content type and platform:
+
+  {email_with_@_replaced_by_underscore}/
+  ├── uploads/{ulid}.jpg          Direct uploads via POST /assets
+  ├── assets/{ulid}.png           Pipeline-generated images (AI, stock, scraped)
+  └── variants/
+      ├── instagram/{ulid}.webp   Cropped & resized for Instagram (1080x1080)
+      ├── facebook/{ulid}.webp    Cropped & resized for Facebook
+      ├── x/{ulid}.webp           Cropped & resized for X/Twitter
+      └── linkedin/{ulid}.webp    Cropped & resized for LinkedIn
+
+Fallback: if no user email is available (API-key auth), the folder prefix is
+  workspaces/{workspaceId}/...  instead.
+
+
+PRE-SIGNED URL EXPIRY
+----------------------
+All S3 URLs (used to serve images in the UI and to pass images to Instagram/Facebook)
+are pre-signed and expire after 7 days (604800 seconds).
+
+This is the maximum AWS allows for IAM user credentials.
+It is long enough to cover:
+  - Review-gate approvals (user taking days to approve a post)
+  - Scheduled posts with a future publish date
+
+
+COMMON ERRORS
+-------------
+Error: "[s3] The bucket you are attempting to access must be addressed using
+        the specified endpoint. Please send all future requests to this endpoint."
+Fix:   Your bucket was created in a different region than AWS_REGION in .env.
+       Go to S3 console → your bucket → Properties tab → note the "AWS Region".
+       Update AWS_REGION in .env to match exactly, then restart pnpm dev.
+
+Error: "Access Denied"
+Fix:   The IAM user does not have permission to access this bucket.
+       Check that AmazonS3FullAccess (or a scoped policy for your bucket) is
+       attached to the visora-api IAM user.
+
+Error: "NoSuchBucket"
+Fix:   The bucket name in S3_BUCKET does not match the actual bucket name.
+       Bucket names are case-sensitive and globally unique.
