@@ -118,6 +118,18 @@ export interface NodeConfig {
   };
 }
 
+export interface DbCollection {
+  name: string;
+  count: number;
+}
+
+export interface DbDocsPage {
+  items: Record<string, unknown>[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 export const adminApi = {
@@ -164,4 +176,11 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify({ assignments }),
     }),
+
+  // Database explorer (read-only)
+  listDbCollections: () => request<DbCollection[]>("/admin/database/collections"),
+  listDbDocs: (collection: string, page = 1, pageSize = 20) =>
+    request<DbDocsPage>(
+      `/admin/database/collections/${collection}/docs?page=${page}&pageSize=${pageSize}`,
+    ),
 };

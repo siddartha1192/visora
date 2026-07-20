@@ -54,6 +54,8 @@ const schema = z.object({
   // same token used for Instagram (a long-lived Page Access Token).
   FACEBOOK_ACCESS_TOKEN: z.string().optional(),
 
+  LINKEDIN_ACCESS_TOKEN: z.string().optional(),
+
   // CORS
   WEB_ORIGIN: z.string().default("http://localhost:3000"),
 });

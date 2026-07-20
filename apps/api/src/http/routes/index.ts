@@ -477,6 +477,28 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
           },
         },
       }, admin.updateNodeConfig);
+
+      r.get("/database/collections", {
+        schema: { tags: ["admin"], summary: "List collections with counts", security: bearer },
+      }, admin.listCollections);
+
+      r.get("/database/collections/:collection/docs", {
+        schema: {
+          tags: ["admin"], summary: "Paginated documents for a collection", security: bearer,
+          params: {
+            type: "object",
+            properties: { collection: { type: "string" } },
+            required: ["collection"],
+          },
+          querystring: {
+            type: "object",
+            properties: {
+              page:     { type: "number", default: 1,  minimum: 1 },
+              pageSize: { type: "number", default: 20, minimum: 1, maximum: 50 },
+            },
+          },
+        },
+      }, admin.listCollectionDocs);
     },
     { prefix: "/v1/admin" },
   );

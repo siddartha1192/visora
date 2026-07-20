@@ -1,8 +1,11 @@
 import argon2 from "argon2";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { Model } from "mongoose";
 import { Types } from "mongoose";
 import {
   AgentLogModel,
+  AssetModel,
+  JobModel,
   LlmConfigModel,
   NodeConfigModel,
   PostModel,
@@ -372,4 +375,50 @@ export async function updateNodeConfig(req: FastifyRequest, reply: FastifyReply)
       enhancement: toRef((a as Record<string, unknown>).enhancement),
     },
   });
+}
+
+// ── Database explorer ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DB_COLLECTIONS: ReadonlyArray<{ name: string; model: Model<any> }> = [
+  { name: "users",       model: UserModel       },
+  { name: "workspaces",  model: WorkspaceModel  },
+  { name: "posts",       model: PostModel       },
+  { name: "assets",      model: AssetModel      },
+  { name: "jobs",        model: JobModel        },
+  { name: "agentlogs",   model: AgentLogModel   },
+  { name: "llmconfigs",  model: LlmConfigModel  },
+  { name: "nodeconfigs", model: NodeConfigModel },
+];
+
+export async function listCollections(_req: FastifyRequest, reply: FastifyReply) {
+  const counts = await Promise.all(DB_COLLECTIONS.map((c) => c.model.countDocuments()));
+  return ok(reply, DB_COLLECTIONS.map((c, i) => ({ name: c.name, count: counts[i] })));
+}
+
+export async function listCollectionDocs(req: FastifyRequest, reply: FastifyReply) {
+  const { collection } = req.params as { collection: string };
+  const { page = 1, pageSize = 20 } = req.query as { page?: number; pageSize?: number };
+
+  const entry = DB_COLLECTIONS.find((c) => c.name === collection);
+  if (!entry) throw new NotFoundError("Collection");
+
+  const safeSize = Math.min(Number(pageSize), 50);
+  const safePage = Math.max(Number(page), 1);
+
+  const [rawDocs, total] = await Promise.all([
+    entry.model.find().sort({ createdAt: -1 }).skip((safePage - 1) * safeSize).limit(safeSize).lean(),
+    entry.model.countDocuments(),
+  ]);
+
+  const docs = (rawDocs as Record<string, unknown>[]).map((doc) => {
+    const d = { ...doc };
+    if (collection === "users") delete d["passwordHash"];
+    if (collection === "llmconfigs" && typeof d["apiKey"] === "string") {
+      d["apiKey"] = maskApiKey(d["apiKey"] as string);
+    }
+    return d;
+  });
+
+  return ok(reply, { items: docs, total, page: safePage, pageSize: safeSize });
 }

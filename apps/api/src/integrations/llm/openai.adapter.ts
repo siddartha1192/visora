@@ -12,6 +12,36 @@ import type {
   UsageMeta,
 } from "../interfaces/ports.js";
 
+// Pricing as of 2025 — input/output per 1 million tokens for text models,
+// flat per-image rate for image models. Update when OpenAI changes pricing.
+const TEXT_PRICES: Record<string, { input: number; output: number }> = {
+  "gpt-4o":              { input:  2.50, output: 10.00 },
+  "gpt-4o-mini":         { input:  0.15, output:  0.60 },
+  "gpt-4-turbo":         { input: 10.00, output: 30.00 },
+  "gpt-4-turbo-preview": { input: 10.00, output: 30.00 },
+  "gpt-4":               { input: 30.00, output: 60.00 },
+  "gpt-3.5-turbo":       { input:  0.50, output:  1.50 },
+};
+
+// Cost per generated image (standard quality, 1024×1024)
+const IMAGE_PRICES: Record<string, number> = {
+  "gpt-image-1": 0.040,
+  "dall-e-3":    0.040,
+  "dall-e-2":    0.020,
+};
+
+function calcTextCost(model: string, promptTokens = 0, completionTokens = 0): number | undefined {
+  const price = TEXT_PRICES[model];
+  if (!price) return undefined;
+  return (promptTokens * price.input + completionTokens * price.output) / 1_000_000;
+}
+
+function calcImageCost(model: string, count = 1): number | undefined {
+  const price = IMAGE_PRICES[model];
+  if (!price) return undefined;
+  return price * count;
+}
+
 function parseSize(size?: string): { width: number; height: number } {
   switch (size) {
     case "1792x1024":
@@ -67,6 +97,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
         provider: this.name,
         model: this.imageModel,
         imagesGenerated: 1,
+        costUsd: calcImageCost(this.imageModel, 1),
       };
       return {
         bytes,
@@ -118,6 +149,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
           provider: this.name,
           model: this.imageModel,
           imagesGenerated: 1,
+          costUsd: calcImageCost(this.imageModel, 1),
         },
       };
     } catch (err) {
@@ -152,13 +184,16 @@ export class OpenAILanguageModel implements LanguageModel {
           }),
         { label: "openai.chat" },
       );
+      const promptTokens = res.usage?.prompt_tokens;
+      const completionTokens = res.usage?.completion_tokens;
       return {
         text: res.choices[0]?.message?.content ?? "",
         usage: {
           provider: this.name,
           model: this.chatModel,
-          promptTokens: res.usage?.prompt_tokens,
-          completionTokens: res.usage?.completion_tokens,
+          promptTokens,
+          completionTokens,
+          costUsd: calcTextCost(this.chatModel, promptTokens, completionTokens),
         },
       };
     } catch (err) {

@@ -33,6 +33,7 @@ import { StubScraper } from "../integrations/scraping/stub.adapter.js";
 import { StubPublisher } from "../integrations/publishers/stub.publisher.js";
 import { InstagramPublisher } from "../integrations/publishers/instagram.publisher.js";
 import { FacebookPublisher } from "../integrations/publishers/facebook.publisher.js";
+import { LinkedInPublisher } from "../integrations/publishers/linkedin.publisher.js";
 
 /**
  * The service container is the ONLY place concrete adapters are instantiated.
@@ -111,6 +112,9 @@ export function createContainer(): ServiceContainer {
       }
       if (p === "facebook" && env.FACEBOOK_ACCESS_TOKEN) {
         return [p, new FacebookPublisher(env.FACEBOOK_ACCESS_TOKEN)];
+      }
+      if (p === "linkedin" && env.LINKEDIN_ACCESS_TOKEN) {
+        return [p, new LinkedInPublisher(env.LINKEDIN_ACCESS_TOKEN)];
       }
       stubPlatforms.push(p);
       return [p, new StubPublisher(p)];

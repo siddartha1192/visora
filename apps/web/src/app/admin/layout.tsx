@@ -16,6 +16,7 @@ import {
   Cpu,
   GitBranch,
   BarChart3,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clearAuth } from "@/lib/api";
@@ -37,6 +38,7 @@ const ADMIN_NAV = [
   { href: "/admin/users",     label: "Users",       icon: Users      },
   { href: "/admin/llms",      label: "LLM Configs", icon: Cpu        },
   { href: "/admin/nodes",     label: "Node Config", icon: GitBranch  },
+  { href: "/admin/database",  label: "Database",    icon: Database   },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

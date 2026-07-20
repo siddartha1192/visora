@@ -60,7 +60,7 @@ export const captionNode = defineNode("caption", async (state, ctx) => {
       hashtags,
       generated: true,
     },
-    usage: [{ node: "caption", provider: usage.provider, model: usage.model }],
+    usage: [{ node: "caption", ...usage }],
     logMessage: `Caption generated — "${(value.caption ?? "").slice(0, 60)}${(value.caption ?? "").length > 60 ? "…" : ""}"`,
     logData: { generated: true, hashtagCount: hashtags.length, seed: seed.slice(0, 100) },
   } satisfies NodeReturn;

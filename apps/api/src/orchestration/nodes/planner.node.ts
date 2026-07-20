@@ -196,7 +196,7 @@ Return JSON with:
       generate: true,
       hashtags: [],
     },
-    usage: [{ node: "planner", provider: usage.provider, model: usage.model }],
+    usage: [{ node: "planner", ...usage }],
     logMessage: `Workflow: ${resolvedWorkflow} → ${platforms.join(", ")} (${resolvedScheduleMode})`,
     logData: {
       resolvedWorkflow,
