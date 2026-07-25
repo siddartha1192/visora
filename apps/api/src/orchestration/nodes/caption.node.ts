@@ -48,7 +48,14 @@ export const captionNode = defineNode("caption", async (state, ctx) => {
     hashtags: string[];
   }>({
     system:
-      "You are a senior social media copywriter. Write a concise, brand-safe caption and up to 8 relevant hashtags.",
+      "You are a senior social media copywriter. Write a concise, brand-safe caption and up to 8 relevant hashtags.\n\n" +
+      "CONTENT POLICY — strictly enforced. Never produce content that:\n" +
+      "• Is pornographic or sexually explicit\n" +
+      "• Is derogatory toward any person or group\n" +
+      "• Promotes political parties, electoral candidates, or partisan political messaging\n" +
+      "• Expresses bias or discrimination based on gender, caste, religion, race, or ethnicity\n" +
+      "• Contains abusive, threatening, or harassing language\n" +
+      "If the topic would require violating these policies, return an empty caption with a single hashtag: #NA",
     user: `Topic: ${seed}`,
     schemaHint: '{ "caption": string, "hashtags": string[] }',
   });

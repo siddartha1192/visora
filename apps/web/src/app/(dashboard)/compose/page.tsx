@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PromptTemplatePanel } from "@/components/ui/prompt-templates";
+import { ContentPolicyModal } from "@/components/ui/content-policy-modal";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 const WORKFLOW_OPTIONS: Array<{
   id: WorkflowType;
@@ -46,6 +47,7 @@ export default function ComposePage() {
   const [targets, setTargets] = useState<Platform[]>(["instagram"]);
   const [scheduleMode, setScheduleMode] = useState<"instant" | "scheduled">("instant");
   const [runAt, setRunAt] = useState<Date | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
 
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadAsset(file),
@@ -58,6 +60,11 @@ export default function ComposePage() {
   });
 
   const submit = useMutation({
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === "CONTENT_POLICY_VIOLATION") {
+        setPolicyError(err.message);
+      }
+    },
     mutationFn: () => api.createPost(buildPayload()),
   });
 
@@ -99,6 +106,13 @@ export default function ComposePage() {
   const disabled = submit.isPending || (needsUpload && !uploadedAssetId) || targets.length === 0;
 
   return (
+    <>
+    {policyError && (
+      <ContentPolicyModal
+        message={policyError}
+        onDismiss={() => { setPolicyError(null); submit.reset(); }}
+      />
+    )}
     <div className="mx-auto max-w-5xl space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -351,7 +365,7 @@ export default function ComposePage() {
               ✓ Queued — post {submit.data.id.slice(-6)} ({submit.data.status})
             </span>
           )}
-          {submit.isError && (
+          {submit.isError && !policyError && (
             <span className="text-sm text-red-300">
               {(submit.error as Error).message}
             </span>
@@ -359,6 +373,7 @@ export default function ComposePage() {
         </div>
       </Card>
     </div>
+    </>
   );
 }
 

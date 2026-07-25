@@ -19,6 +19,7 @@ import type { ServiceContainer } from "../config/container.js";
 import { GraphState, type GraphStateType } from "./state.js";
 import { WORKFLOW_REGISTRY, type ExecutableWorkflow } from "./registry.js";
 import { ingestNode } from "./nodes/ingest.node.js";
+import { moderationNode } from "./nodes/moderation.node.js";
 import { plannerNode } from "./nodes/planner.node.js";
 import { optimizationNode } from "./nodes/optimization.node.js";
 import { captionNode } from "./nodes/caption.node.js";
@@ -41,6 +42,7 @@ import { createCheckpointer } from "./checkpointer/mongo-checkpointer.js";
 export async function buildGraph(_services: ServiceContainer) {
   const graph = new StateGraph(GraphState)
     .addNode("ingest", ingestNode)
+    .addNode("moderation", moderationNode)
     .addNode("planner", plannerNode)
     .addNode("optimization", optimizationNode)
     .addNode("write_caption", captionNode)
@@ -56,15 +58,18 @@ export async function buildGraph(_services: ServiceContainer) {
   }
 
   graph.addEdge(START, "ingest" as never);
+  // Content policy gate: every run passes through moderation after ingest and
+  // before any LLM or image provider is called.
+  graph.addEdge("ingest" as never, "moderation" as never);
 
   const workflowNodeMap = Object.fromEntries(
     Object.values(WORKFLOW_REGISTRY).map((d) => [d.nodeId, d.nodeId]),
   );
 
-  // ROUTER: branch from ingest to the workflow node for state.workflow.
+  // ROUTER: branch from moderation to the workflow node for state.workflow.
   // "autonomous" posts go to the planner node first; all others go directly to their workflow node.
   graph.addConditionalEdges(
-    "ingest" as never,
+    "moderation" as never,
     (state: GraphStateType) => {
       if (state.workflow === "autonomous") return "planner";
       return WORKFLOW_REGISTRY[state.workflow as ExecutableWorkflow].nodeId;
