@@ -6,6 +6,8 @@
  * Only runs on instant posts; scheduled posts skip straight to persist.
  */
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
+import { withRetry } from "../../lib/retry.js";
 
 /**
  * Fan-out publish. For each target we pick the platform-matched variant and
@@ -35,12 +37,15 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
       }
       const publisher = ctx.services.publishers[target.platform];
       try {
-        const res = await publisher.publish({
-          platform: target.platform,
-          accountId: target.accountId,
-          imageUrl: variant.cloudinaryUrl,
-          caption: fullCaption,
-        });
+        const res = await withRetry(
+          () => publisher.publish({
+            platform: target.platform,
+            accountId: target.accountId,
+            imageUrl: variant.cloudinaryUrl,
+            caption: fullCaption,
+          }),
+          { label: `publisher.${target.platform}`, retries: 2, baseDelayMs: 1500, maxDelayMs: 12000 },
+        );
         return {
           platform: target.platform,
           accountId: target.accountId,
@@ -59,8 +64,26 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
     }),
   );
 
+  const publishedCount = results.filter((r) => r.status === "published").length;
+  const failed = results.filter((r) => r.status === "failed");
+
+  const failureSummary = failed
+    .map((r) => `${r.platform}: ${r.error ?? "unknown error"}`)
+    .join(" | ");
+
+  const logMessage =
+    failed.length > 0
+      ? `Published to ${publishedCount}/${results.length} platform(s) — ${failureSummary}`
+      : `Published to ${publishedCount}/${results.length} platform(s)`;
+
   return {
     published: results,
     usage: [{ node: "publish", provider: "publishers" }],
-  };
+    logMessage,
+    logData: {
+      publishedCount,
+      failedCount: failed.length,
+      platforms: results.map((r) => ({ platform: r.platform, status: r.status, error: r.error })),
+    },
+  } satisfies NodeReturn;
 });

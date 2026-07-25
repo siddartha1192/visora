@@ -4,6 +4,8 @@ import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import staticFiles from "@fastify/static";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import Fastify, { type FastifyInstance } from "fastify";
 import { env } from "../config/env.js";
 import { isProd } from "../config/env.js";
@@ -12,6 +14,7 @@ import { appLog } from "../lib/logging/index.js";
 import { loggerOptions } from "../lib/logger.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { registerRoutes } from "./routes/index.js";
+import { registerSchemas } from "./swagger-schemas.js";
 
 /**
  * Builds the Fastify app: security headers, CORS for the web origin, JWT,
@@ -21,7 +24,47 @@ import { registerRoutes } from "./routes/index.js";
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({ logger: loggerOptions, trustProxy: true });
 
+  // OpenAPI spec + Swagger UI — registered before routes so the spec is populated.
+  // Only exposed in non-production environments.
+  if (!isProd) {
+    await app.register(swagger, {
+      openapi: {
+        openapi: "3.0.3",
+        info: {
+          title: "Visora API",
+          description: "Social media scheduling & autonomous content pipeline",
+          version: "1.0.0",
+        },
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "JWT",
+              description: "Access token from /v1/auth/login or /v1/auth/register",
+            },
+          },
+        },
+        tags: [
+          { name: "auth", description: "Authentication — register, login, token refresh" },
+          { name: "posts", description: "Content pipeline — create, review, approve, publish" },
+          { name: "assets", description: "Media library — upload and retrieve images" },
+          { name: "logs", description: "Pipeline execution logs — real-time node events, status, and SSE streaming" },
+          { name: "admin", description: "Admin — user management, LLM configuration, node assignments" },
+        ],
+      },
+    });
+
+    await app.register(swaggerUi, {
+      routePrefix: "/docs",
+      uiConfig: { docExpansion: "list", deepLinking: true, tryItOutEnabled: true },
+    });
+  }
+
   await app.register(helmet, {
+    // CSP is intentionally disabled: this server only serves JSON + Swagger UI (dev).
+    // End-user CSP is handled by the Next.js web layer.
+    contentSecurityPolicy: false,
     // Allow the Next.js dev server (different port) to load images from this API.
     crossOriginResourcePolicy: { policy: isProd ? "same-origin" : "cross-origin" },
   });
@@ -70,6 +113,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   app.setErrorHandler(errorHandler);
+  registerSchemas(app);
   await registerRoutes(app);
 
   return app;

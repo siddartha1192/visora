@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { env } from "../../config/env.js";
 import { ProviderError } from "../../lib/errors.js";
+import { withRetry } from "../../lib/retry.js";
 import type { MediaOptimizer, ResizeResult } from "../interfaces/ports.js";
 
 /**
@@ -29,13 +30,17 @@ export class CloudinaryOptimizer implements MediaOptimizer {
     sourceUrl: string;
     spec: import("@visora/shared").PlatformImageSpec;
     source: import("@visora/shared").StoredAssetRef;
+    prefix: string;
   }): Promise<ResizeResult> {
     const { spec, sourceUrl } = args;
     try {
-      const uploaded = await cloudinary.uploader.upload(sourceUrl, {
-        folder: `visora/${spec.platform}`,
-        resource_type: "image",
-      });
+      const uploaded = await withRetry(
+        () => cloudinary.uploader.upload(sourceUrl, {
+          folder: `${args.prefix}/variants/${spec.platform}`,
+          resource_type: "image",
+        }),
+        { label: "cloudinary.upload", retries: 3, baseDelayMs: 1000, maxDelayMs: 10000 },
+      );
       const url = cloudinary.url(uploaded.public_id, {
         width: spec.width,
         height: spec.height,

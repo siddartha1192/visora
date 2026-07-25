@@ -31,6 +31,9 @@ import { StubStockProvider } from "../integrations/stock/stub.adapter.js";
 import { PlaywrightScraper } from "../integrations/scraping/playwright.adapter.js";
 import { StubScraper } from "../integrations/scraping/stub.adapter.js";
 import { StubPublisher } from "../integrations/publishers/stub.publisher.js";
+import { InstagramPublisher } from "../integrations/publishers/instagram.publisher.js";
+import { FacebookPublisher } from "../integrations/publishers/facebook.publisher.js";
+import { LinkedInPublisher } from "../integrations/publishers/linkedin.publisher.js";
 
 /**
  * The service container is the ONLY place concrete adapters are instantiated.
@@ -101,10 +104,23 @@ export function createContainer(): ServiceContainer {
       ? new PlaywrightScraper()
       : (usingStub.push("scraper"), new StubScraper());
 
+  const stubPlatforms: string[] = [];
   const publishers = Object.fromEntries(
-    PLATFORMS.map((p) => [p, new StubPublisher(p)]),
+    PLATFORMS.map((p) => {
+      if (p === "instagram" && env.INSTAGRAM_ACCESS_TOKEN) {
+        return [p, new InstagramPublisher(env.INSTAGRAM_ACCESS_TOKEN)];
+      }
+      if (p === "facebook" && env.FACEBOOK_ACCESS_TOKEN) {
+        return [p, new FacebookPublisher(env.FACEBOOK_ACCESS_TOKEN)];
+      }
+      if (p === "linkedin" && env.LINKEDIN_ACCESS_TOKEN) {
+        return [p, new LinkedInPublisher(env.LINKEDIN_ACCESS_TOKEN)];
+      }
+      stubPlatforms.push(p);
+      return [p, new StubPublisher(p)];
+    }),
   ) as Record<Platform, Publisher>;
-  usingStub.push("publishers(all)");
+  if (stubPlatforms.length > 0) usingStub.push(`publishers(${stubPlatforms.join(",")})`);
 
   if (usingStub.length > 0) {
     logger.warn(

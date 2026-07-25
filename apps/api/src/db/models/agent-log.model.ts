@@ -29,6 +29,10 @@ const agentLogSchema = new Schema(
       costUsd: { type: Number },
     },
     durationMs: { type: Number },
+    /** Human-readable summary for the UI log viewer. */
+    message: { type: String },
+    /** Small structured metadata for the UI (e.g. resolved workflow, platform list). */
+    data: { type: Schema.Types.Mixed },
     error: {
       message: { type: String },
       code: { type: String },

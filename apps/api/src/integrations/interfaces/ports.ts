@@ -100,6 +100,8 @@ export interface MediaOptimizer {
     source: StoredAssetRef;
     sourceUrl: string;
     spec: PlatformImageSpec;
+    /** S3/storage key prefix for the variant, e.g. "workspaces/{workspaceId}". */
+    prefix: string;
   }): Promise<ResizeResult>;
 }
 

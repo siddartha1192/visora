@@ -10,8 +10,8 @@ export const platformSchema = z.enum(PLATFORMS);
 
 export const publishTargetSchema = z.object({
   platform: platformSchema,
-  /** The connected social account on the workspace to publish through. */
-  accountId: objectIdSchema,
+  /** The external platform account ID (e.g. Instagram Business Account ID). */
+  accountId: z.string().min(1),
 });
 export type PublishTargetInput = z.infer<typeof publishTargetSchema>;
 
@@ -23,11 +23,11 @@ export const scheduleSchema = z
     timezone: z.string().default("UTC"),
   })
   .refine(
-    (s) => s.mode === "instant" || Boolean(s.runAt),
+    (s) => s.mode !== "scheduled" || Boolean(s.runAt),
     { message: "runAt is required when mode is 'scheduled'", path: ["runAt"] },
   )
   .refine(
-    (s) => s.mode === "instant" || !s.runAt || new Date(s.runAt) > new Date(),
+    (s) => s.mode !== "scheduled" || !s.runAt || new Date(s.runAt) > new Date(),
     { message: "runAt must be in the future", path: ["runAt"] },
   );
 export type ScheduleInput = z.infer<typeof scheduleSchema>;

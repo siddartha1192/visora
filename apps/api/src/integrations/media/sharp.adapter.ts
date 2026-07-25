@@ -1,7 +1,9 @@
 import sharp, { type FitEnum } from "sharp";
+import { ulid } from "ulid";
 import type { PlatformImageSpec, StoredAssetRef } from "@visora/shared";
 import { logger } from "../../lib/logger.js";
 import { ProviderError } from "../../lib/errors.js";
+import { withRetry } from "../../lib/retry.js";
 import type { MediaOptimizer, ObjectStore, PutObjectParams, ResizeResult } from "../interfaces/ports.js";
 
 const CROP_FIT: Record<string, keyof FitEnum> = {
@@ -25,6 +27,7 @@ export class SharpMediaOptimizer implements MediaOptimizer {
     source: StoredAssetRef;
     sourceUrl: string;
     spec: PlatformImageSpec;
+    prefix: string;
   }): Promise<ResizeResult> {
     const { source, spec } = args;
 
@@ -40,8 +43,13 @@ export class SharpMediaOptimizer implements MediaOptimizer {
     } catch {
       // Fallback: fetch from URL (e.g. when source is a stock photo URL not yet in store)
       logger.debug({ key: source.s3Key }, "sharp: key not in store, fetching from sourceUrl");
-      const res = await fetch(args.sourceUrl);
-      if (!res.ok) throw new ProviderError("sharp", `Failed to fetch source image: ${res.status}`);
+      const res = await withRetry(
+        () => fetch(args.sourceUrl).then((r) => {
+          if (!r.ok) throw new ProviderError("sharp", `Failed to fetch source image: ${r.status}`);
+          return r;
+        }),
+        { label: "sharp.fetch-source", retries: 3, baseDelayMs: 500, maxDelayMs: 5000 },
+      );
       srcBytes = Buffer.from(await res.arrayBuffer());
     }
 
@@ -51,7 +59,7 @@ export class SharpMediaOptimizer implements MediaOptimizer {
       .webp({ quality: 85 })
       .toBuffer();
 
-    const variantKey = `variants/${spec.platform}/${source.s3Key.replace(/\.[^.]+$/, "")}.webp`;
+    const variantKey = `${args.prefix}/variants/${spec.platform}/${ulid()}.webp`;
     const putParams: PutObjectParams = {
       key: variantKey,
       body: resized,

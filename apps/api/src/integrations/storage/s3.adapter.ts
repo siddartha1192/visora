@@ -7,6 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { StoredAssetRef } from "@visora/shared";
 import { env } from "../../config/env.js";
 import { ProviderError } from "../../lib/errors.js";
+import { withRetry } from "../../lib/retry.js";
 import type { ObjectStore, PutObjectParams } from "../interfaces/ports.js";
 
 async function streamToBuffer(stream: unknown): Promise<Buffer> {
@@ -40,13 +41,16 @@ export class S3ObjectStore implements ObjectStore {
 
   async put(params: PutObjectParams): Promise<StoredAssetRef> {
     try {
-      await this.client.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: params.key,
-          Body: params.body,
-          ContentType: params.contentType,
-        }),
+      await withRetry(
+        () => this.client.send(
+          new PutObjectCommand({
+            Bucket: this.bucket,
+            Key: params.key,
+            Body: params.body,
+            ContentType: params.contentType,
+          }),
+        ),
+        { label: "s3.put", retries: 3, baseDelayMs: 500, maxDelayMs: 8000 },
       );
     } catch (err) {
       throw new ProviderError("s3", (err as Error).message);
@@ -64,8 +68,9 @@ export class S3ObjectStore implements ObjectStore {
 
   async get(key: string): Promise<{ body: Buffer; contentType: string }> {
     try {
-      const out = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      const out = await withRetry(
+        () => this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key })),
+        { label: "s3.get", retries: 3, baseDelayMs: 500, maxDelayMs: 8000 },
       );
       const body = await streamToBuffer(out.Body);
       return { body, contentType: out.ContentType ?? "application/octet-stream" };
@@ -74,7 +79,7 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async signedUrl(key: string, expiresInSec = 3600): Promise<string> {
+  async signedUrl(key: string, expiresInSec = 604800): Promise<string> {
     return getSignedUrl(
       this.client,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),

@@ -8,24 +8,29 @@ import {
   type WorkflowType,
   type CreatePostInput,
 } from "@visora/shared";
-import { Wand2, Sparkles, Images, Globe, Upload, Send, Clock } from "lucide-react";
+import { Wand2, Sparkles, Images, Globe, Upload, Send, Clock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { PromptTemplatePanel } from "@/components/ui/prompt-templates";
+import { ContentPolicyModal } from "@/components/ui/content-policy-modal";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
-const WORKFLOWS: Array<{
+const WORKFLOW_OPTIONS: Array<{
   id: WorkflowType;
   title: string;
   desc: string;
   icon: typeof Wand2;
 }> = [
-  { id: "passthrough", title: "Upload", desc: "Post a photo directly", icon: Upload },
-  { id: "ai_generate", title: "Generate", desc: "Create with DALL·E 3", icon: Sparkles },
-  { id: "ai_enhance", title: "Enhance", desc: "AI-edit an upload", icon: Wand2 },
-  { id: "stock_discovery", title: "Stock", desc: "Find stock imagery", icon: Images },
-  { id: "scrape", title: "Extract", desc: "Pull from a URL", icon: Globe },
+  { id: "passthrough",    title: "Upload",   desc: "Post a photo directly",  icon: Upload   },
+  { id: "ai_generate",   title: "Generate", desc: "Create with DALL·E 3",   icon: Sparkles },
+  { id: "ai_enhance",    title: "Enhance",  desc: "AI-edit an upload",       icon: Wand2    },
+  { id: "stock_discovery", title: "Stock",  desc: "Find stock imagery",      icon: Images   },
+  { id: "scrape",         title: "Extract", desc: "Pull from a URL",         icon: Globe    },
 ];
+
+const PLACEHOLDER_ACCOUNT = "17841480000696385";
 
 export default function ComposePage() {
   const [workflow, setWorkflow] = useState<WorkflowType>("ai_generate");
@@ -38,29 +43,37 @@ export default function ComposePage() {
   const [enhanceInstructions, setEnhanceInstructions] = useState("");
   const [caption, setCaption] = useState("");
   const [generateCaption, setGenerateCaption] = useState(false);
+  const [uploadedAssetId, setUploadedAssetId] = useState<string | null>(null);
   const [targets, setTargets] = useState<Platform[]>(["instagram"]);
   const [scheduleMode, setScheduleMode] = useState<"instant" | "scheduled">("instant");
-  const [runAt, setRunAt] = useState("");
-  const [uploadedAssetId, setUploadedAssetId] = useState<string | null>(null);
+  const [runAt, setRunAt] = useState<Date | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
 
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadAsset(file),
     onSuccess: (a) => setUploadedAssetId(a.id),
   });
 
-  const submit = useMutation({
-    mutationFn: () => api.createPost(buildPayload()),
+  const refine = useMutation({
+    mutationFn: () => api.refinePrompt(prompt),
+    onSuccess: (r) => setPrompt(r.refined),
   });
 
-  // Placeholder account id — the Settings page wires real connected accounts.
-  const PLACEHOLDER_ACCOUNT = "000000000000000000000000";
+  const submit = useMutation({
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === "CONTENT_POLICY_VIOLATION") {
+        setPolicyError(err.message);
+      }
+    },
+    mutationFn: () => api.createPost(buildPayload()),
+  });
 
   function buildPayload(): CreatePostInput {
     const base = {
       targets: targets.map((p) => ({ platform: p, accountId: PLACEHOLDER_ACCOUNT })),
       schedule: {
         mode: scheduleMode,
-        runAt: scheduleMode === "scheduled" ? new Date(runAt).toISOString() : undefined,
+        runAt: scheduleMode === "scheduled" && runAt ? runAt.toISOString() : undefined,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       caption: { text: caption || undefined, hashtags: [], generate: generateCaption },
@@ -84,31 +97,42 @@ export default function ComposePage() {
         };
       case "scrape":
         return { workflow, sourceUrl, context, ...base };
+      default:
+        return { workflow: "ai_generate", prompt, ...base };
     }
   }
 
   const needsUpload = workflow === "passthrough" || workflow === "ai_enhance";
+  const disabled = submit.isPending || (needsUpload && !uploadedAssetId) || targets.length === 0;
 
   return (
+    <>
+    {policyError && (
+      <ContentPolicyModal
+        message={policyError}
+        onDismiss={() => { setPolicyError(null); submit.reset(); }}
+      />
+    )}
     <div className="mx-auto max-w-5xl space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">Compose</h1>
-        <p className="text-muted-foreground">
-          Pick a workflow, give the agent its input, choose where and when to post.
-        </p>
-      </header>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight">Compose</h1>
+          <p className="text-muted-foreground">
+            Pick a workflow, give the agent its input, choose where and when to post.
+          </p>
+        </header>
+      </div>
 
       {/* Workflow picker */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {WORKFLOWS.map((w) => (
+        {WORKFLOW_OPTIONS.map((w) => (
           <button
             key={w.id}
             onClick={() => setWorkflow(w.id)}
             className={cn(
               "glass rounded-xl p-4 text-left transition-all",
-              workflow === w.id
-                ? "ring-2 ring-primary"
-                : "opacity-70 hover:opacity-100",
+              workflow === w.id ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100",
             )}
           >
             <w.icon
@@ -124,7 +148,6 @@ export default function ComposePage() {
       </div>
 
       <Card className="p-6">
-        {/* Dynamic workflow inputs */}
         <div className="space-y-4">
           {needsUpload && (
             <div>
@@ -156,12 +179,34 @@ export default function ComposePage() {
                     : "minimalist workspace, natural light, plants"
                 }
               />
+              <PromptTemplatePanel workflow={workflow} onSelect={setPrompt} />
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={prompt.trim().length < 3 || refine.isPending}
+                  onClick={() => refine.mutate()}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                    refine.isPending
+                      ? "border-primary/40 bg-primary/10 text-primary/60 cursor-not-allowed"
+                      : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/15",
+                    prompt.trim().length < 3 && "opacity-40 cursor-not-allowed",
+                  )}
+                >
+                  <Zap className={cn("h-3 w-3", refine.isPending && "animate-pulse")} />
+                  {refine.isPending ? "Refining…" : "Refine prompt"}
+                </button>
+                {refine.isError && (
+                  <span className="text-xs text-red-400">
+                    {(refine.error as Error).message}
+                  </span>
+                )}
+              </div>
             </Field>
           )}
 
           {workflow === "stock_discovery" && (
             <>
-              {/* Source picker */}
               <Field label="Photo source">
                 <div className="flex gap-2">
                   {(["auto", "pexels", "unsplash"] as const).map((src) => (
@@ -183,7 +228,6 @@ export default function ComposePage() {
                 <Hint>Auto tries Pexels first, falls back to Unsplash if no results.</Hint>
               </Field>
 
-              {/* Enhance toggle */}
               <div className="rounded-lg border border-border p-4 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -199,7 +243,6 @@ export default function ComposePage() {
                     </p>
                   </div>
                 </label>
-
                 {enhanceAfterStock && (
                   <Field label="Enhancement instructions (optional)">
                     <Textarea
@@ -221,6 +264,7 @@ export default function ComposePage() {
                 onChange={setInstructions}
                 placeholder="Replace the background with a soft gradient studio backdrop…"
               />
+              <PromptTemplatePanel workflow="ai_enhance" onSelect={setInstructions} />
             </Field>
           )}
 
@@ -231,11 +275,11 @@ export default function ComposePage() {
               </Field>
               <Field label="Context (what to extract)">
                 <Input value={context} onChange={setContext} placeholder="the main hero product photo" />
+                <PromptTemplatePanel workflow="scrape" onSelect={setContext} />
               </Field>
             </>
           )}
 
-          {/* Caption */}
           <Field label="Caption">
             <Textarea
               value={caption}
@@ -253,7 +297,7 @@ export default function ComposePage() {
           </Field>
         </div>
 
-        {/* Targets */}
+        {/* Platforms */}
         <div className="mt-6">
           <Label>Platforms</Label>
           <div className="flex flex-wrap gap-2">
@@ -261,9 +305,7 @@ export default function ComposePage() {
               <button
                 key={p}
                 onClick={() =>
-                  setTargets((t) =>
-                    t.includes(p) ? t.filter((x) => x !== p) : [...t, p],
-                  )
+                  setTargets((t) => t.includes(p) ? t.filter((x) => x !== p) : [...t, p])
                 }
                 className={cn(
                   "rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-colors",
@@ -297,11 +339,11 @@ export default function ComposePage() {
               <Clock className="h-4 w-4" /> Schedule
             </Button>
             {scheduleMode === "scheduled" && (
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={runAt}
-                onChange={(e) => setRunAt(e.target.value)}
-                className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+                onChange={setRunAt}
+                minDate={new Date()}
+                placeholder="Pick a date & time"
               />
             )}
           </div>
@@ -309,11 +351,7 @@ export default function ComposePage() {
 
         {/* Submit */}
         <div className="mt-8 flex items-center gap-4">
-          <Button
-            size="lg"
-            disabled={submit.isPending || (needsUpload && !uploadedAssetId) || targets.length === 0}
-            onClick={() => submit.mutate()}
-          >
+          <Button size="lg" disabled={disabled} onClick={() => submit.mutate()}>
             {submit.isPending
               ? "Dispatching…"
               : scheduleMode === "scheduled"
@@ -327,7 +365,7 @@ export default function ComposePage() {
               ✓ Queued — post {submit.data.id.slice(-6)} ({submit.data.status})
             </span>
           )}
-          {submit.isError && (
+          {submit.isError && !policyError && (
             <span className="text-sm text-red-300">
               {(submit.error as Error).message}
             </span>
@@ -335,6 +373,7 @@ export default function ComposePage() {
         </div>
       </Card>
     </div>
+    </>
   );
 }
 
@@ -353,15 +392,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Hint({ children }: { children: React.ReactNode }) {
   return <p className="mt-1 text-xs text-muted-foreground">{children}</p>;
 }
-function Input({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
+function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <input
       value={value}
@@ -371,15 +402,7 @@ function Input({
     />
   );
 }
-function Textarea({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
+function Textarea({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <textarea
       value={value}

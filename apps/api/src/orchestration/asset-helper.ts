@@ -31,6 +31,8 @@ export async function storeImageAsset(args: {
   services: ServiceContainer;
   workspaceId: string;
   jobId: string;
+  /** Sanitised author email (e.g. "user_gmail.com") used as the S3 folder prefix. */
+  authorEmail?: string;
   bytes: Buffer;
   mime: string;
   width: number;
@@ -40,7 +42,8 @@ export async function storeImageAsset(args: {
   origin?: { sourceUrl?: string; prompt?: string; providerMeta?: Record<string, unknown> };
 }): Promise<{ ref: StoredAssetRef; url: string }> {
   const ext = EXT[args.mime] ?? "png";
-  const key = `workspaces/${args.workspaceId}/assets/${ulid()}.${ext}`;
+  const prefix = args.authorEmail ?? `workspaces/${args.workspaceId}`;
+  const key = `${prefix}/assets/${ulid()}.${ext}`;
 
   const stored = await args.services.objectStore.put({
     key,
@@ -60,7 +63,7 @@ export async function storeImageAsset(args: {
     createdByJobId: new Types.ObjectId(args.jobId),
   });
 
-  const url = await args.services.objectStore.signedUrl(stored.s3Key, 3600);
+  const url = await args.services.objectStore.signedUrl(stored.s3Key);
 
   return {
     ref: {

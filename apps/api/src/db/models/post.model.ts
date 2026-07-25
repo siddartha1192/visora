@@ -10,7 +10,7 @@ import {
 const targetSchema = new Schema(
   {
     platform: { type: String, enum: PLATFORMS, required: true },
-    accountId: { type: Schema.Types.ObjectId, required: true },
+    accountId: { type: String, required: true },
     assetVariantId: { type: Schema.Types.ObjectId },
     status: { type: String, enum: TARGET_STATUSES, default: "pending" },
     externalPostId: { type: String },
@@ -37,6 +37,7 @@ const postSchema = new Schema(
       index: true,
     },
     input: {
+      brief: { type: String },
       prompt: { type: String },
       instructions: { type: String },
       sourceUrl: { type: String },

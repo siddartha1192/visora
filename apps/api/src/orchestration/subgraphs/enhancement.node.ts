@@ -26,7 +26,8 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
 
   const original = await ctx.services.objectStore.get(source.s3.key);
 
-  const edited = await ctx.services.imageGenerator.edit({
+  const ig = ctx.nodeAdapters?.enhancement?.imageGenerator ?? ctx.services.imageGenerator;
+  const edited = await ig.edit({
     source: original.body,
     sourceMime: original.contentType,
     instructions,
@@ -36,6 +37,7 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
     services: ctx.services,
     workspaceId: state.workspaceId,
     jobId: state.jobId,
+    authorEmail: state.authorEmail,
     bytes: edited.bytes,
     mime: edited.mime,
     width: edited.width,

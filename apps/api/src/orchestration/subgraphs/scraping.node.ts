@@ -53,6 +53,7 @@ export const scrapingNode = defineNode("scraping", async (state, ctx) => {
     services: ctx.services,
     workspaceId: state.workspaceId,
     jobId: state.jobId,
+    authorEmail: state.authorEmail,
     bytes: img.bytes,
     mime: img.mime,
     width: chosen.width ?? 0,
@@ -67,7 +68,7 @@ export const scrapingNode = defineNode("scraping", async (state, ctx) => {
     processedAsset: ref,
     primaryAssetUrl: url,
     ...(llmUsage
-      ? { usage: [{ node: "scraping", provider: llmUsage.provider, model: llmUsage.model }] }
+      ? { usage: [{ node: "scraping", ...llmUsage }] }
       : {}),
   };
 });

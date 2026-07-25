@@ -1,5 +1,6 @@
 import argon2 from "argon2";
 import type { LoginInput, RegisterInput } from "@visora/shared";
+import { env } from "../../config/env.js";
 import { UserModel, WorkspaceModel } from "../../db/models/index.js";
 import { ConflictError, UnauthorizedError } from "../../lib/errors.js";
 
@@ -45,6 +46,15 @@ export async function verifyCredentials(input: LoginInput): Promise<AuthedUser> 
 
   const ok = await argon2.verify(user.passwordHash, input.password);
   if (!ok) throw new UnauthorizedError("Invalid email or password");
+
+  // Auto-promote emails listed in ADMIN_EMAILS env var.
+  const adminEmails = env.ADMIN_EMAILS
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (adminEmails.includes(user.email) && !user.isAdmin) {
+    user.isAdmin = true;
+  }
 
   user.lastLoginAt = new Date();
   await user.save();

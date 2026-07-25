@@ -12,6 +12,36 @@ import type {
   UsageMeta,
 } from "../interfaces/ports.js";
 
+// Pricing as of 2025 — input/output per 1 million tokens for text models,
+// flat per-image rate for image models. Update when OpenAI changes pricing.
+const TEXT_PRICES: Record<string, { input: number; output: number }> = {
+  "gpt-4o":              { input:  2.50, output: 10.00 },
+  "gpt-4o-mini":         { input:  0.15, output:  0.60 },
+  "gpt-4-turbo":         { input: 10.00, output: 30.00 },
+  "gpt-4-turbo-preview": { input: 10.00, output: 30.00 },
+  "gpt-4":               { input: 30.00, output: 60.00 },
+  "gpt-3.5-turbo":       { input:  0.50, output:  1.50 },
+};
+
+// Cost per generated image (standard quality, 1024×1024)
+const IMAGE_PRICES: Record<string, number> = {
+  "gpt-image-1": 0.040,
+  "dall-e-3":    0.040,
+  "dall-e-2":    0.020,
+};
+
+function calcTextCost(model: string, promptTokens = 0, completionTokens = 0): number | undefined {
+  const price = TEXT_PRICES[model];
+  if (!price) return undefined;
+  return (promptTokens * price.input + completionTokens * price.output) / 1_000_000;
+}
+
+function calcImageCost(model: string, count = 1): number | undefined {
+  const price = IMAGE_PRICES[model];
+  if (!price) return undefined;
+  return price * count;
+}
+
 function parseSize(size?: string): { width: number; height: number } {
   switch (size) {
     case "1792x1024":
@@ -26,9 +56,11 @@ function parseSize(size?: string): { width: number; height: number } {
 export class OpenAIImageGenerator implements ImageGenerator {
   readonly name = "openai";
   private client: OpenAI;
+  private imageModel: string;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  constructor(opts?: { apiKey?: string; imageModel?: string }) {
+    this.client = new OpenAI({ apiKey: opts?.apiKey ?? env.OPENAI_API_KEY });
+    this.imageModel = opts?.imageModel ?? env.OPENAI_IMAGE_MODEL;
   }
 
   async generate(params: GenerateImageParams): Promise<ImageResult> {
@@ -37,7 +69,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const res = await withRetry(
         () =>
           this.client.images.generate({
-            model: env.OPENAI_IMAGE_MODEL,
+            model: this.imageModel,
             prompt: params.prompt,
             size,
             n: 1,
@@ -63,8 +95,9 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const dims = parseSize(size);
       const usage: UsageMeta = {
         provider: this.name,
-        model: env.OPENAI_IMAGE_MODEL,
+        model: this.imageModel,
         imagesGenerated: 1,
+        costUsd: calcImageCost(this.imageModel, 1),
       };
       return {
         bytes,
@@ -86,7 +119,7 @@ export class OpenAIImageGenerator implements ImageGenerator {
       const res = await withRetry(
         () =>
           this.client.images.edit({
-            model: env.OPENAI_IMAGE_MODEL,
+            model: this.imageModel,
             image,
             prompt: params.instructions,
           } as Parameters<typeof this.client.images.edit>[0]),
@@ -114,8 +147,9 @@ export class OpenAIImageGenerator implements ImageGenerator {
         height: 1024,
         usage: {
           provider: this.name,
-          model: env.OPENAI_IMAGE_MODEL,
+          model: this.imageModel,
           imagesGenerated: 1,
+          costUsd: calcImageCost(this.imageModel, 1),
         },
       };
     } catch (err) {
@@ -127,9 +161,11 @@ export class OpenAIImageGenerator implements ImageGenerator {
 export class OpenAILanguageModel implements LanguageModel {
   readonly name = "openai";
   private client: OpenAI;
+  private chatModel: string;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  constructor(opts?: { apiKey?: string; chatModel?: string }) {
+    this.client = new OpenAI({ apiKey: opts?.apiKey ?? env.OPENAI_API_KEY });
+    this.chatModel = opts?.chatModel ?? env.OPENAI_TEXT_MODEL;
   }
 
   async complete(args: { system: string; user: string }): Promise<{
@@ -140,7 +176,7 @@ export class OpenAILanguageModel implements LanguageModel {
       const res = await withRetry(
         () =>
           this.client.chat.completions.create({
-            model: env.OPENAI_TEXT_MODEL,
+            model: this.chatModel,
             messages: [
               { role: "system", content: args.system },
               { role: "user", content: args.user },
@@ -148,13 +184,16 @@ export class OpenAILanguageModel implements LanguageModel {
           }),
         { label: "openai.chat" },
       );
+      const promptTokens = res.usage?.prompt_tokens;
+      const completionTokens = res.usage?.completion_tokens;
       return {
         text: res.choices[0]?.message?.content ?? "",
         usage: {
           provider: this.name,
-          model: env.OPENAI_TEXT_MODEL,
-          promptTokens: res.usage?.prompt_tokens,
-          completionTokens: res.usage?.completion_tokens,
+          model: this.chatModel,
+          promptTokens,
+          completionTokens,
+          costUsd: calcTextCost(this.chatModel, promptTokens, completionTokens),
         },
       };
     } catch (err) {

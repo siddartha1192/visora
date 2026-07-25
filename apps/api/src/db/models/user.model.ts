@@ -22,6 +22,7 @@ const userSchema = new Schema(
       enum: ["active", "invited", "suspended"],
       default: "active",
     },
+    isAdmin: { type: Boolean, default: false },
     lastLoginAt: { type: Date },
   },
   { timestamps: true },

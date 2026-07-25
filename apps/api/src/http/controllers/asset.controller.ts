@@ -15,6 +15,7 @@ export async function upload(req: FastifyRequest, reply: FastifyReply) {
   const bytes = await file.toBuffer();
   const dto = await uploadAsset({
     workspaceId: req.auth!.workspaceId,
+    userEmail: req.auth!.userEmail?.toLowerCase().replace("@", "_"),
     bytes,
     mime: file.mimetype,
   });

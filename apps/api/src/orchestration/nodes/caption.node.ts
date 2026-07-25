@@ -7,6 +7,7 @@
  *  - Neither → leave caption empty
  */
 import { defineNode } from "../context.js";
+import type { NodeReturn } from "../context.js";
 
 /**
  * Optional caption authoring. If the user supplied caption text we pass it
@@ -20,36 +21,54 @@ export const captionNode = defineNode("caption", async (state, ctx) => {
   if (req?.text && !req.generate) {
     return {
       caption: { text: req.text, hashtags: req.hashtags ?? [], generated: false },
-    };
+      logMessage: "Caption passed through (user-supplied)",
+      logData: { generated: false, hashtagCount: (req.hashtags ?? []).length },
+    } satisfies NodeReturn;
   }
 
   if (!req?.generate) {
-    // Nothing to do — leave caption empty.
-    return { caption: { text: req?.text ?? "", hashtags: req?.hashtags ?? [], generated: false } };
+    return {
+      caption: { text: req?.text ?? "", hashtags: req?.hashtags ?? [], generated: false },
+      logMessage: "Caption skipped — no generate flag",
+      logData: { generated: false },
+    } satisfies NodeReturn;
   }
 
+  // brief is the richest seed for autonomous posts; fall back to workflow-specific fields
   const seed =
+    state.input.brief ??
     state.input.prompt ??
     state.input.instructions ??
     state.input.context ??
     "Engaging social media post";
 
-  const { value, usage } = await ctx.services.languageModel.completeJson<{
+  const lm = ctx.nodeAdapters?.caption?.languageModel ?? ctx.services.languageModel;
+  const { value, usage } = await lm.completeJson<{
     caption: string;
     hashtags: string[];
   }>({
     system:
-      "You are a senior social media copywriter. Write a concise, brand-safe caption and up to 8 relevant hashtags.",
+      "You are a senior social media copywriter. Write a concise, brand-safe caption and up to 8 relevant hashtags.\n\n" +
+      "CONTENT POLICY — strictly enforced. Never produce content that:\n" +
+      "• Is pornographic or sexually explicit\n" +
+      "• Is derogatory toward any person or group\n" +
+      "• Promotes political parties, electoral candidates, or partisan political messaging\n" +
+      "• Expresses bias or discrimination based on gender, caste, religion, race, or ethnicity\n" +
+      "• Contains abusive, threatening, or harassing language\n" +
+      "If the topic would require violating these policies, return an empty caption with a single hashtag: #NA",
     user: `Topic: ${seed}`,
     schemaHint: '{ "caption": string, "hashtags": string[] }',
   });
 
+  const hashtags = (value.hashtags ?? []).slice(0, 30);
   return {
     caption: {
       text: value.caption ?? "",
-      hashtags: (value.hashtags ?? []).slice(0, 30),
+      hashtags,
       generated: true,
     },
-    usage: [{ node: "caption", provider: usage.provider, model: usage.model }],
-  };
+    usage: [{ node: "caption", ...usage }],
+    logMessage: `Caption generated — "${(value.caption ?? "").slice(0, 60)}${(value.caption ?? "").length > 60 ? "…" : ""}"`,
+    logData: { generated: true, hashtagCount: hashtags.length, seed: seed.slice(0, 100) },
+  } satisfies NodeReturn;
 });

@@ -24,6 +24,8 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16).default("dev-insecure-secret-change-me-please"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
+  // Comma-separated list of emails that are automatically promoted to admin on login
+  ADMIN_EMAILS: z.string().default(""),
 
   // S3 / storage
   AWS_REGION: z.string().default("us-east-1"),
@@ -45,6 +47,14 @@ const schema = z.object({
 
   PEXELS_API_KEY: z.string().optional(),
   UNSPLASH_ACCESS_KEY: z.string().optional(),
+
+  // Social publishers
+  INSTAGRAM_ACCESS_TOKEN: z.string().optional(),
+  // Page Access Token for Facebook — in Meta's setup this is typically the
+  // same token used for Instagram (a long-lived Page Access Token).
+  FACEBOOK_ACCESS_TOKEN: z.string().optional(),
+
+  LINKEDIN_ACCESS_TOKEN: z.string().optional(),
 
   // CORS
   WEB_ORIGIN: z.string().default("http://localhost:3000"),

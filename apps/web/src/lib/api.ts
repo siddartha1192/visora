@@ -6,18 +6,57 @@ import type {
   PostDTO,
 } from "@visora/shared";
 
+export interface LogEntry {
+  id: string;
+  sequence: number;
+  node: string;
+  status: "started" | "succeeded" | "failed" | "skipped";
+  message: string;
+  data: Record<string, unknown> | null;
+  durationMs: number | null;
+  provider: string | null;
+  model: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface LogsResponse {
+  postId: string;
+  done: boolean;
+  logs: LogEntry[];
+}
+
+export class ApiError extends Error {
+  constructor(message: string, public readonly code?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 
+const USER_TOKEN_KEY = "visora_token";
+const ADMIN_TOKEN_KEY = "visora_admin_token";
+
 /** Token storage is intentionally simple here; swap for httpOnly cookies/BFF. */
 let accessToken: string | null =
-  typeof window !== "undefined" ? localStorage.getItem("visora_token") : null;
+  typeof window !== "undefined" ? localStorage.getItem(USER_TOKEN_KEY) : null;
 
 export function setToken(token: string | null) {
   accessToken = token;
   if (typeof window !== "undefined") {
-    if (token) localStorage.setItem("visora_token", token);
-    else localStorage.removeItem("visora_token");
+    if (token) localStorage.setItem(USER_TOKEN_KEY, token);
+    else localStorage.removeItem(USER_TOKEN_KEY);
+  }
+}
+
+/** Wipes ALL session state — user token, admin token, in-memory token. */
+export function clearAuth() {
+  accessToken = null;
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(USER_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
   }
 }
 
@@ -31,12 +70,28 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+  // Token expired or revoked — wipe everything and send user back to login.
+  if (res.status === 401) {
+    clearAuth();
+    if (typeof window !== "undefined") window.location.replace("/login");
+  }
+
   const json = (await res.json()) as ApiResponse<T>;
-  if (!json.ok) throw new Error(json.error.message);
+  if (!json.ok) throw new ApiError(json.error.message, (json.error as Record<string, unknown>).code as string | undefined);
   return json.data;
 }
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+}
+
 export const api = {
+  getMe: () => request<UserProfile>("/auth/me"),
   login: (email: string, password: string) =>
     request<{ tokens: { accessToken: string } }>("/auth/login", {
       method: "POST",
@@ -61,13 +116,33 @@ export const api = {
   getAsset: (id: string) => request<AssetDTO>(`/assets/${id}`),
   cancelPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/cancel`, { method: "POST" }),
-  approvePost: (id: string) =>
-    request<PostDTO>(`/posts/${id}/approve`, { method: "POST" }),
+  approvePost: (
+    id: string,
+    opts?: { scheduledAt?: string; scheduleMode?: "instant" | "scheduled" },
+  ) =>
+    request<PostDTO>(`/posts/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    }),
   rejectPost: (id: string) =>
     request<PostDTO>(`/posts/${id}/reject`, { method: "POST" }),
+  retryPost: (id: string, mode: "from_failed" | "full") =>
+    request<PostDTO>(`/posts/${id}/retry`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    }),
+  adminDeletePost: (id: string) =>
+    request<{ deleted: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
   uploadAsset: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
     return request<AssetDTO>("/assets", { method: "POST", body: fd });
   },
+  getLogs: (postId: string) =>
+    request<LogsResponse>(`/posts/${postId}/logs`),
+  refinePrompt: (prompt: string) =>
+    request<{ refined: string }>("/prompts/refine", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
 };

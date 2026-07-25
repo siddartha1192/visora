@@ -37,7 +37,10 @@ export interface WorkflowDefinition {
   handler: NodeHandler;
 }
 
-export const WORKFLOW_REGISTRY: Record<WorkflowType, WorkflowDefinition> = {
+/** Workflows that map directly to graph nodes. "autonomous" is excluded — it routes via the planner node. */
+export type ExecutableWorkflow = Exclude<WorkflowType, "autonomous">;
+
+export const WORKFLOW_REGISTRY: Record<ExecutableWorkflow, WorkflowDefinition> = {
   passthrough: { nodeId: "passthrough", handler: passthroughNode },
   ai_generate: { nodeId: "generation", handler: generationNode },
   ai_enhance: { nodeId: "enhancement", handler: enhancementNode },

@@ -9,6 +9,7 @@ export const WORKFLOWS = [
   "ai_enhance",
   "stock_discovery",
   "scrape",
+  "autonomous",
 ] as const;
 export type WorkflowType = (typeof WORKFLOWS)[number];
 
@@ -33,7 +34,7 @@ export type PostStatus = (typeof POST_STATUSES)[number];
 export const TARGET_STATUSES = ["pending", "published", "failed"] as const;
 export type TargetStatus = (typeof TARGET_STATUSES)[number];
 
-export const SCHEDULE_MODES = ["instant", "scheduled"] as const;
+export const SCHEDULE_MODES = ["instant", "scheduled", "auto"] as const;
 export type ScheduleMode = (typeof SCHEDULE_MODES)[number];
 
 export const ASSET_KINDS = [
@@ -67,7 +68,10 @@ export const JOB_STATES = [
 export type JobState = (typeof JOB_STATES)[number];
 
 export const AGENT_NODES = [
+  "pipeline",     // pseudo-node for pipeline-level start/complete/fail events
   "ingest",
+  "moderation",   // content policy gate — runs after ingest, before any AI call
+  "planner",
   "router",
   "passthrough",
   "generation",

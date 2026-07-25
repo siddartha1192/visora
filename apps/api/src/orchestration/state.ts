@@ -34,9 +34,12 @@ export const GraphState = Annotation.Root({
   jobId: Annotation<string>(),
   threadId: Annotation<string>(),
   workflow: Annotation<WorkflowType>(),
+  /** Sanitised author email used as the S3 folder prefix (e.g. "user_gmail.com"). */
+  authorEmail: Annotation<string | undefined>(),
 
   // --- inputs ---
   input: Annotation<{
+    brief?: string;
     prompt?: string;
     instructions?: string;
     sourceUrl?: string;
@@ -47,12 +50,14 @@ export const GraphState = Annotation.Root({
     enhanceInstructions?: string;
   }>(),
   targets: Annotation<GraphTarget[]>(),
+  /** Set by the planner node when workflow === "autonomous"; the resolved concrete workflow. */
+  resolvedWorkflow: Annotation<WorkflowType | undefined>(),
   captionRequest: Annotation<{
     text?: string;
     hashtags: string[];
     generate: boolean;
   }>(),
-  scheduleMode: Annotation<"instant" | "scheduled">(),
+  scheduleMode: Annotation<"instant" | "scheduled" | "auto">(),
 
   // --- working artifacts ---
   rawAsset: Annotation<StoredAssetRef | undefined>(),
