@@ -121,6 +121,74 @@ export async function deleteUser(req: FastifyRequest, reply: FastifyReply) {
   return ok(reply, { deleted: id });
 }
 
+// ── Posts ─────────────────────────────────────────────────────────────────────
+
+export async function listAllPosts(req: FastifyRequest, reply: FastifyReply) {
+  const { page = 1, pageSize = 30, status, q } = req.query as {
+    page?: number; pageSize?: number; status?: string; q?: string;
+  };
+  const safeSize = Math.min(Number(pageSize), 50);
+  const safePage = Math.max(Number(page), 1);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter: Record<string, any> = {};
+  if (status) filter.status = status;
+  if (q) filter.$or = [
+    { "input.prompt": { $regex: q, $options: "i" } },
+    { "input.brief": { $regex: q, $options: "i" } },
+    { "input.instructions": { $regex: q, $options: "i" } },
+  ];
+
+  const [posts, total] = await Promise.all([
+    PostModel.find(filter).sort({ createdAt: -1 }).skip((safePage - 1) * safeSize).limit(safeSize).lean(),
+    PostModel.countDocuments(filter),
+  ]);
+
+  // Batch-resolve workspace → user (email + name) for display.
+  // Users have a workspaces[] array of memberships; match on workspaces.workspaceId.
+  const wsIds = [...new Set(posts.map((p) => p.workspaceId.toString()))];
+  const wsObjectIds = wsIds.map((id) => new Types.ObjectId(id));
+  const users = await UserModel.find({ "workspaces.workspaceId": { $in: wsObjectIds } })
+    .select("workspaces email name")
+    .lean();
+  // Map each workspaceId to the first user that has that workspace membership
+  const wsToUser = new Map<string, { email: string; name: string }>();
+  for (const u of users) {
+    for (const m of u.workspaces ?? []) {
+      const wsId = (m as { workspaceId: Types.ObjectId }).workspaceId.toString();
+      if (!wsToUser.has(wsId)) wsToUser.set(wsId, { email: u.email, name: u.name });
+    }
+  }
+
+  const items = posts.map((p) => {
+    const owner = wsToUser.get(p.workspaceId.toString());
+    return {
+      id: (p._id as Types.ObjectId).toString(),
+      workspaceId: p.workspaceId.toString(),
+      ownerEmail: owner?.email ?? "—",
+      ownerName: owner?.name ?? "—",
+      workflow: p.workflow,
+      status: p.status,
+      brief: (p.input as Record<string, string | undefined>)?.brief ?? undefined,
+      prompt: (p.input as Record<string, string | undefined>)?.prompt ?? undefined,
+      instructions: (p.input as Record<string, string | undefined>)?.instructions ?? undefined,
+      platforms: (p.targets ?? []).map((t: { platform: string }) => t.platform),
+      primaryAssetId: p.primaryAssetId?.toString(),
+      lastError: p.lastError ?? undefined,
+      createdAt: (p as unknown as { createdAt: Date }).createdAt.toISOString(),
+    };
+  });
+
+  return ok(reply, { items, total, page: safePage, pageSize: safeSize });
+}
+
+export async function deletePost(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  const post = await PostModel.findByIdAndDelete(new Types.ObjectId(id));
+  if (!post) throw new NotFoundError("Post");
+  return ok(reply, { deleted: id });
+}
+
 // ── LLM Configs ───────────────────────────────────────────────────────────────
 
 export async function listLlmConfigs(_req: FastifyRequest, reply: FastifyReply) {

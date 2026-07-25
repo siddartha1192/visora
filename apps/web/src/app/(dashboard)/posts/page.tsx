@@ -20,6 +20,7 @@ import {
   RotateCcw,
   RefreshCw,
   ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -114,6 +115,13 @@ export default function PostsPage() {
     refetchInterval: 5000,
   });
 
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.getMe(),
+    staleTime: 60_000,
+  });
+  const isAdmin = me?.isAdmin ?? false;
+
   const [lightbox, setLightbox] = useState<{ url: string; post: PostDTO } | null>(null);
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);
   const [logPost, setLogPost] = useState<PostDTO | null>(null);
@@ -182,6 +190,7 @@ export default function PostsPage() {
             <PostRow
               key={post.id}
               post={post}
+              isAdmin={isAdmin}
               onImageClick={(url) => setLightbox({ url, post })}
               onReview={() => setReviewPost(post)}
               onViewLogs={() => setLogPost(post)}
@@ -284,11 +293,13 @@ const LOGGABLE_STATUSES = new Set([
 
 function PostRow({
   post,
+  isAdmin,
   onImageClick,
   onReview,
   onViewLogs,
 }: {
   post: PostDTO;
+  isAdmin: boolean;
   onImageClick: (url: string) => void;
   onReview: () => void;
   onViewLogs: () => void;
@@ -296,6 +307,12 @@ function PostRow({
   const queryClient = useQueryClient();
   const [retryOpen, setRetryOpen] = useState(false);
   const retryRef = useRef<HTMLDivElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.adminDeletePost(post.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+  });
 
   const { data: asset } = useQuery<AssetDTO>({
     queryKey: ["asset", post.primaryAssetId],
@@ -379,7 +396,7 @@ function PostRow({
           )}
         </div>
 
-        {/* Targets + date */}
+        {/* Targets + date + admin delete */}
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex gap-1">
             {post.targets.map((t) => (
@@ -394,8 +411,44 @@ function PostRow({
           <span className="text-xs text-muted-foreground/50">
             {new Date(post.createdAt).toLocaleString()}
           </span>
+          {isAdmin && !confirmDelete && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              title="Delete post (admin)"
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Admin delete confirmation */}
+      {confirmDelete && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
+          <p className="text-xs text-red-300">
+            Permanently delete this post record? This cannot be undone.
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleteMutation.isPending}
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              className="flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+            >
+              <Trash2 className="h-3 w-3" />
+              {deleteMutation.isPending ? "Deleting…" : "Yes, delete"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pending review */}
       {post.status === "pending_review" && (

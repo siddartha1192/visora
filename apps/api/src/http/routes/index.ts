@@ -416,6 +416,25 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
         schema: { tags: ["admin"], summary: "Delete user", security: bearer, params: objectIdParam },
       }, admin.deleteUser);
 
+      r.get("/posts", {
+        schema: {
+          tags: ["admin"], summary: "List all posts across all workspaces", security: bearer,
+          querystring: {
+            type: "object",
+            properties: {
+              page:     { type: "number", default: 1, minimum: 1 },
+              pageSize: { type: "number", default: 30, minimum: 1, maximum: 50 },
+              status:   { type: "string" },
+              q:        { type: "string" },
+            },
+          },
+        },
+      }, admin.listAllPosts);
+
+      r.delete("/posts/:id", {
+        schema: { tags: ["admin"], summary: "Hard-delete a post record", security: bearer, params: objectIdParam },
+      }, admin.deletePost);
+
       r.get("/llm-configs", {
         schema: { tags: ["admin"], summary: "List LLM configs", security: bearer },
       }, admin.listLlmConfigs);

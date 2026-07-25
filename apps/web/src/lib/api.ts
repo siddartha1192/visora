@@ -131,6 +131,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mode }),
     }),
+  adminDeletePost: (id: string) =>
+    request<{ deleted: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
   uploadAsset: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
