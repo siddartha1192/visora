@@ -48,7 +48,7 @@ function AddLlmModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-elevate-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-semibold">Add LLM Config</h2>
           <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
@@ -91,7 +91,7 @@ function AddLlmModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {error && (
-            <p className="flex items-center gap-1.5 text-sm text-red-400"><AlertCircle className="h-3.5 w-3.5" />{error}</p>
+            <p className="flex items-center gap-1.5 text-sm text-destructive"><AlertCircle className="h-3.5 w-3.5" />{error}</p>
           )}
 
           <div className="flex gap-2 pt-1">
@@ -177,12 +177,12 @@ export default function LlmsPage() {
                     <td className="px-4 py-3">
                       <button onClick={() => toggleActive.mutate(cfg)} className="text-muted-foreground hover:text-foreground transition-colors" title={cfg.isActive ? "Deactivate" : "Activate"}>
                         {cfg.isActive
-                          ? <ToggleRight className="h-5 w-5 text-emerald-400" />
+                          ? <ToggleRight className="h-5 w-5 text-success" />
                           : <ToggleLeft className="h-5 w-5" />}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => setConfirmDelete(cfg)} className="rounded p-1 text-muted-foreground/40 hover:text-red-400 transition-colors" title="Delete">
+                      <button onClick={() => setConfirmDelete(cfg)} className="rounded p-1 text-muted-foreground/40 hover:text-destructive transition-colors" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -198,14 +198,14 @@ export default function LlmsPage() {
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setConfirmDelete(null)}>
-          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-elevate-lg" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">Delete config?</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{confirmDelete.label}</span> will be removed. Any node assignments using it will become unset.
             </p>
             <div className="mt-5 flex gap-2">
               <button onClick={() => setConfirmDelete(null)} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => deleteConfig.mutate(confirmDelete.id)} disabled={deleteConfig.isPending} className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50 transition-colors">
+              <button onClick={() => deleteConfig.mutate(confirmDelete.id)} disabled={deleteConfig.isPending} className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition-colors">
                 {deleteConfig.isPending ? "Deleting…" : "Delete"}
               </button>
             </div>

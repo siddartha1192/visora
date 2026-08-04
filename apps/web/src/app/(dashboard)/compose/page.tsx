@@ -24,7 +24,7 @@ const WORKFLOW_OPTIONS: Array<{
   icon: typeof Wand2;
 }> = [
   { id: "passthrough",    title: "Upload",   desc: "Post a photo directly",  icon: Upload   },
-  { id: "ai_generate",   title: "Generate", desc: "Create with DALL·E 3",   icon: Sparkles },
+  { id: "ai_generate",   title: "Generate", desc: "Create with LLM",        icon: Sparkles },
   { id: "ai_enhance",    title: "Enhance",  desc: "AI-edit an upload",       icon: Wand2    },
   { id: "stock_discovery", title: "Stock",  desc: "Find stock imagery",      icon: Images   },
   { id: "scrape",         title: "Extract", desc: "Pull from a URL",         icon: Globe    },
@@ -113,42 +113,51 @@ export default function ComposePage() {
         onDismiss={() => { setPolicyError(null); submit.reset(); }}
       />
     )}
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">Compose</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-[-0.02em]">Compose</h1>
+          <p className="text-sm text-muted-foreground">
             Pick a workflow, give the agent its input, choose where and when to post.
           </p>
         </header>
       </div>
 
       {/* Workflow picker */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {WORKFLOW_OPTIONS.map((w) => (
           <button
             key={w.id}
             onClick={() => setWorkflow(w.id)}
             className={cn(
-              "glass rounded-xl p-4 text-left transition-all",
-              workflow === w.id ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100",
+              "glass flex flex-col items-center rounded-xl p-3 text-center transition-all",
+              workflow === w.id
+                ? "ring-2 ring-[#39FF14] bg-[#39FF14]/10"
+                : "opacity-70 hover:opacity-100",
             )}
           >
             <w.icon
               className={cn(
-                "mb-2 h-5 w-5",
-                workflow === w.id ? "text-primary" : "text-accent",
+                "mb-1.5 h-5 w-5",
+                workflow === w.id ? "text-[#39FF14]" : "text-accent",
               )}
             />
-            <p className="text-sm font-semibold">{w.title}</p>
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                workflow === w.id && "text-[#39FF14]",
+              )}
+            >
+              {w.title}
+            </p>
             <p className="text-xs text-muted-foreground">{w.desc}</p>
           </button>
         ))}
       </div>
 
-      <Card className="p-6">
-        <div className="space-y-4">
+      <Card className="p-5">
+        <div className="space-y-3">
           {needsUpload && (
             <div>
               <Label>Source image</Label>
@@ -161,7 +170,7 @@ export default function ComposePage() {
               {upload.isPending && <Hint>Uploading…</Hint>}
               {uploadedAssetId && <Hint>✓ Uploaded ({uploadedAssetId.slice(-6)})</Hint>}
               {upload.isError && (
-                <p className="mt-1 text-xs text-red-400">
+                <p className="mt-1 text-xs text-destructive">
                   Upload failed: {(upload.error as Error).message}
                 </p>
               )}
@@ -197,7 +206,7 @@ export default function ComposePage() {
                   {refine.isPending ? "Refining…" : "Refine prompt"}
                 </button>
                 {refine.isError && (
-                  <span className="text-xs text-red-400">
+                  <span className="text-xs text-destructive">
                     {(refine.error as Error).message}
                   </span>
                 )}
@@ -298,7 +307,7 @@ export default function ComposePage() {
         </div>
 
         {/* Platforms */}
-        <div className="mt-6">
+        <div className="mt-4">
           <Label>Platforms</Label>
           <div className="flex flex-wrap gap-2">
             {PLATFORMS.map((p) => (
@@ -321,7 +330,7 @@ export default function ComposePage() {
         </div>
 
         {/* Schedule */}
-        <div className="mt-6">
+        <div className="mt-4">
           <Label>Delivery</Label>
           <div className="flex flex-wrap items-center gap-3">
             <Button
@@ -350,7 +359,7 @@ export default function ComposePage() {
         </div>
 
         {/* Submit */}
-        <div className="mt-8 flex items-center gap-4">
+        <div className="mt-6 flex flex-col items-center gap-2">
           <Button size="lg" disabled={disabled} onClick={() => submit.mutate()}>
             {submit.isPending
               ? "Dispatching…"
@@ -361,12 +370,12 @@ export default function ComposePage() {
               : "Generate & Publish"}
           </Button>
           {submit.isSuccess && (
-            <span className="text-sm text-emerald-300">
+            <span className="text-sm text-success">
               ✓ Queued — post {submit.data.id.slice(-6)} ({submit.data.status})
             </span>
           )}
           {submit.isError && !policyError && (
-            <span className="text-sm text-red-300">
+            <span className="text-sm text-destructive">
               {(submit.error as Error).message}
             </span>
           )}

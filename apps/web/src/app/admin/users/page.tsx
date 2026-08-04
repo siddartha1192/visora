@@ -27,7 +27,7 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-elevate-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-semibold">Add User</h2>
           <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
@@ -46,7 +46,7 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 rounded border border-border accent-primary" />
             <span className="text-sm">Grant admin access</span>
           </label>
-          {error && <p className="flex items-center gap-1.5 text-sm text-red-400"><AlertCircle className="h-3.5 w-3.5" />{error}</p>}
+          {error && <p className="flex items-center gap-1.5 text-sm text-destructive"><AlertCircle className="h-3.5 w-3.5" />{error}</p>}
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
             <button type="submit" disabled={mutation.isPending} className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity">
@@ -125,8 +125,8 @@ export default function UsersPage() {
                         className={cn(
                           "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
                           u.status === "active"
-                            ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                            : "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25",
+                            ? "bg-success/15 text-success hover:bg-success/25"
+                            : "bg-warning/15 text-warning hover:bg-warning/25",
                         )}
                       >
                         {u.status}
@@ -147,7 +147,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => setConfirmDelete(u)}
-                        className="rounded p-1 text-muted-foreground/40 hover:text-red-400 transition-colors"
+                        className="rounded p-1 text-muted-foreground/40 hover:text-destructive transition-colors"
                         title="Delete user"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -166,7 +166,7 @@ export default function UsersPage() {
       {/* Delete confirmation */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setConfirmDelete(null)}>
-          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-elevate-lg" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">Delete user?</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{confirmDelete.name}</span> ({confirmDelete.email}) will be permanently removed.
@@ -176,7 +176,7 @@ export default function UsersPage() {
               <button
                 onClick={() => deleteUser.mutate(confirmDelete.id)}
                 disabled={deleteUser.isPending}
-                className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition-colors"
               >
                 {deleteUser.isPending ? "Deleting…" : "Delete"}
               </button>

@@ -57,7 +57,7 @@ export default function AdminPostsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">All Posts</h1>
+          <h1 className="text-xl font-semibold tracking-[-0.02em]">All Posts</h1>
           <p className="text-muted-foreground">
             Every post across all workspaces.{" "}
             {data && <span className="font-medium text-foreground">{data.total.toLocaleString()} total</span>}
@@ -177,7 +177,7 @@ function PostRow({
   const contentText = post.brief ?? post.prompt ?? post.instructions ?? "—";
 
   return (
-    <tr className={cn("transition-colors hover:bg-secondary/20", confirmDelete && "bg-red-500/5")}>
+    <tr className={cn("transition-colors hover:bg-secondary/20", confirmDelete && "bg-destructive/5")}>
       {/* Owner */}
       <td className="px-4 py-3">
         <p className="font-medium text-foreground">{post.ownerName}</p>
@@ -190,7 +190,7 @@ function PostRow({
           {contentText.slice(0, 80)}{contentText.length > 80 ? "…" : ""}
         </p>
         {post.lastError && (
-          <div className="mt-1 flex items-center gap-1 text-xs text-red-400">
+          <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
             <AlertCircle className="h-3 w-3 shrink-0" />
             <span className="truncate">{post.lastError.replace(/^\[content-policy\]\s*/i, "").slice(0, 60)}</span>
           </div>
@@ -235,7 +235,7 @@ function PostRow({
       <td className="px-4 py-3 text-right">
         {confirmDelete ? (
           <div className="flex items-center justify-end gap-2">
-            <span className="text-xs text-red-400">Delete?</span>
+            <span className="text-xs text-destructive">Delete?</span>
             <button
               onClick={onCancelDelete}
               disabled={deleting}
@@ -246,7 +246,7 @@ function PostRow({
             <button
               onClick={onConfirmDelete}
               disabled={deleting}
-              className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 rounded bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
             >
               <Trash2 className="h-3 w-3" />
               {deleting ? "…" : "Delete"}
@@ -255,7 +255,7 @@ function PostRow({
         ) : (
           <button
             onClick={onDeleteClick}
-            className="rounded p-1.5 text-muted-foreground/30 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="rounded p-1.5 text-muted-foreground/30 transition-colors hover:bg-destructive/10 hover:text-destructive"
             title="Delete post"
           >
             <Trash2 className="h-4 w-4" />

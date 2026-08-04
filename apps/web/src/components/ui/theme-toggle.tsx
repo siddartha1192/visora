@@ -20,7 +20,7 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
 
   if (compact) {
     return (
-      <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+      <div className="flex items-center rounded-md border border-border bg-muted/50 p-0.5">
         {OPTIONS.map(({ value, label, Icon }) => {
           const active = theme === value;
           return (
@@ -29,9 +29,9 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
               onClick={() => setTheme(value)}
               title={`${label} theme`}
               className={cn(
-                "flex items-center justify-center rounded-md p-1.5 transition-all",
+                "flex items-center justify-center rounded-[5px] p-1.5 transition-all duration-150",
                 active
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-card text-foreground shadow-elevate-xs ring-1 ring-border"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -44,7 +44,7 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
   }
 
   return (
-    <div className="flex w-full rounded-lg border border-border bg-muted/40 p-0.5">
+    <div className="flex w-full rounded-md border border-border bg-muted/50 p-0.5">
       {OPTIONS.map(({ value, label, Icon }) => {
         const active = theme === value;
         return (
@@ -53,9 +53,9 @@ export function ThemeToggle({ compact = false }: ThemeToggleProps) {
             onClick={() => setTheme(value)}
             title={`${label} theme`}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[5px] px-2 py-1.5 text-xs font-medium transition-all duration-150",
               active
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-card text-foreground shadow-elevate-xs ring-1 ring-border"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

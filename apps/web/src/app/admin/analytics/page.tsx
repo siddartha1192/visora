@@ -32,12 +32,12 @@ const WORKFLOW_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  published:      "bg-emerald-500/15 text-emerald-400",
-  failed:         "bg-red-500/15 text-red-400",
-  pending_review: "bg-amber-500/15 text-amber-400",
+  published:      "bg-success/15 text-success",
+  failed:         "bg-destructive/15 text-destructive",
+  pending_review: "bg-warning/15 text-warning",
   cancelled:      "bg-slate-500/15 text-slate-400",
   rejected:       "bg-orange-500/15 text-orange-400",
-  processing:     "bg-blue-500/15 text-blue-400",
+  processing:     "bg-primary/15 text-primary",
   queued:         "bg-indigo-500/15 text-indigo-400",
   scheduled:      "bg-violet-500/15 text-violet-400",
   ready:          "bg-cyan-500/15 text-cyan-400",
@@ -77,7 +77,7 @@ function StatCard({ label, value, sub, icon: Icon, accent }: {
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
-      <p className="mt-3 text-2xl font-bold tracking-tight">{value}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-[-0.02em]">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -160,9 +160,9 @@ export default function AnalyticsPage() {
           {/* ── Overview cards ────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatCard label="Total Posts"    value={String(ov.totalPosts)}     sub={`${successRate}% success rate`}  icon={FileText}     accent="bg-secondary/50" />
-            <StatCard label="Published"      value={String(ov.publishedPosts)} sub="successfully delivered"           icon={CheckCircle2} accent="bg-emerald-500/15 text-emerald-400" />
-            <StatCard label="Failed"         value={String(ov.failedPosts)}    sub={`${ov.rejectedPosts} rejected`}   icon={XCircle}      accent="bg-red-500/15 text-red-400" />
-            <StatCard label="Pending Review" value={String(ov.pendingReviewPosts)} sub="awaiting approval"            icon={Clock}        accent="bg-amber-500/15 text-amber-400" />
+            <StatCard label="Published"      value={String(ov.publishedPosts)} sub="successfully delivered"           icon={CheckCircle2} accent="bg-success/15 text-success" />
+            <StatCard label="Failed"         value={String(ov.failedPosts)}    sub={`${ov.rejectedPosts} rejected`}   icon={XCircle}      accent="bg-destructive/15 text-destructive" />
+            <StatCard label="Pending Review" value={String(ov.pendingReviewPosts)} sub="awaiting approval"            icon={Clock}        accent="bg-warning/15 text-warning" />
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatCard label="Prompt Tokens"     value={fmt(ov.totalPromptTokens)}     sub="input tokens consumed"    icon={BarChart3} />
@@ -317,9 +317,9 @@ export default function AnalyticsPage() {
                             <p className="mt-0.5 text-xs text-muted-foreground">{u.email}</p>
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums font-medium">{u.totalPosts}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-emerald-400">{published || <span className="text-muted-foreground/40">—</span>}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-red-400">{failed || <span className="text-muted-foreground/40">—</span>}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-amber-400">{pending || <span className="text-muted-foreground/40">—</span>}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-success">{published || <span className="text-muted-foreground/40">—</span>}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-destructive">{failed || <span className="text-muted-foreground/40">—</span>}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-warning">{pending || <span className="text-muted-foreground/40">—</span>}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               {workflows.map(([wf, cnt]) => (

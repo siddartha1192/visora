@@ -15,7 +15,7 @@ export function ContentPolicyModal({ message, onDismiss }: ContentPolicyModalPro
       onClick={onDismiss}
     >
       <div
-        className="relative mx-4 w-full max-w-md rounded-2xl border border-destructive/30 bg-background p-8 shadow-2xl"
+        className="relative mx-4 w-full max-w-md rounded-lg border border-destructive/30 bg-card p-8 shadow-elevate-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-4 text-center">

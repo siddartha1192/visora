@@ -3,28 +3,28 @@ import type { PostStatus } from "@visora/shared";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:          "bg-slate-500/15 text-slate-300",
-  queued:         "bg-amber-500/15 text-amber-300",
-  processing:     "bg-blue-500/15 text-blue-300 animate-pulse",
-  pending_review: "bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-500/40",
-  ready:          "bg-cyan-500/15 text-cyan-300",
-  scheduled:      "bg-violet-500/15 text-violet-300",
-  publishing:     "bg-blue-500/15 text-blue-300 animate-pulse",
-  published:      "bg-emerald-500/15 text-emerald-300",
-  failed:         "bg-red-500/15 text-red-300",
-  cancelled:      "bg-slate-500/15 text-slate-400",
-  rejected:       "bg-orange-500/15 text-orange-300",
+  draft:          "bg-muted text-muted-foreground ring-1 ring-inset ring-border",
+  queued:         "bg-warning/12 text-warning ring-1 ring-inset ring-warning/25",
+  processing:     "bg-primary/12 text-primary ring-1 ring-inset ring-primary/25 animate-pulse",
+  pending_review: "bg-warning/15 text-warning ring-1 ring-inset ring-warning/30",
+  ready:          "bg-accent/12 text-accent ring-1 ring-inset ring-accent/25",
+  scheduled:      "bg-primary/12 text-primary ring-1 ring-inset ring-primary/25",
+  publishing:     "bg-primary/12 text-primary ring-1 ring-inset ring-primary/25 animate-pulse",
+  published:      "bg-success/12 text-success ring-1 ring-inset ring-success/25",
+  failed:         "bg-destructive/12 text-destructive ring-1 ring-inset ring-destructive/25",
+  cancelled:      "bg-muted text-muted-foreground/70 ring-1 ring-inset ring-border",
+  rejected:       "bg-destructive/10 text-destructive/90 ring-1 ring-inset ring-destructive/20",
 };
 
 export function StatusBadge({ status }: { status: PostStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize tracking-[-0.005em]",
         STATUS_STYLES[status] ?? STATUS_STYLES.draft,
       )}
     >
-      {status}
+      {status.replace(/_/g, " ")}
     </span>
   );
 }
@@ -33,7 +33,7 @@ export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full border border-border bg-secondary/50 px-2.5 py-0.5 text-xs font-medium",
         className,
       )}
       {...props}

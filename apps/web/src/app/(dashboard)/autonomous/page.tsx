@@ -74,7 +74,7 @@ export default function AutonomousPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">Autonomous</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Autonomous</h1>
           <p className="text-muted-foreground">
             Describe what you want — the agent decides how to get it.
           </p>
@@ -121,7 +121,7 @@ export default function AutonomousPage() {
               {refine.isPending ? "Refining…" : "Refine brief"}
             </button>
             {refine.isError && (
-              <span className="text-xs text-red-400">
+              <span className="text-xs text-destructive">
                 {(refine.error as Error).message}
               </span>
             )}
@@ -151,7 +151,7 @@ export default function AutonomousPage() {
           {upload.isPending && <p className="text-xs text-muted-foreground">Uploading…</p>}
           {assetId && (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-emerald-400">
+              <p className="text-xs text-success">
                 ✓ Image ready — agent will decide whether to enhance or post as-is
               </p>
               <button
@@ -164,7 +164,7 @@ export default function AutonomousPage() {
             </div>
           )}
           {upload.isError && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-destructive">
               Upload failed: {(upload.error as Error).message}
             </p>
           )}
@@ -249,12 +249,12 @@ export default function AutonomousPage() {
               : "Let the Agent Post"}
           </Button>
           {submit.isSuccess && (
-            <span className="text-sm text-emerald-300">
+            <span className="text-sm text-success">
               ✓ Queued — post {submit.data.id.slice(-6)} ({submit.data.status})
             </span>
           )}
           {submit.isError && !policyError && (
-            <span className="text-sm text-red-300">
+            <span className="text-sm text-destructive">
               {(submit.error as Error).message}
             </span>
           )}

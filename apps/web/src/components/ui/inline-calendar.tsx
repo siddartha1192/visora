@@ -94,7 +94,7 @@ export function InlineCalendar({ value, onChange, minDate }: InlineCalendarProps
   const yearRange = Array.from({ length: 8 }, (_, i) => thisYear + i);
 
   return (
-    <div className="rounded-xl border border-border bg-background/60 p-3 select-none">
+    <div className="select-none rounded-lg border border-border bg-muted/30 p-3">
       {/* ── Month / year navigation ── */}
       <div className="flex items-center justify-between mb-2">
         <button

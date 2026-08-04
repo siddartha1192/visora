@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ps -p 16662 -o pid,lstart,command)",
+      "Bash(lsof -i:3000 -sTCP:LISTEN)",
+      "Bash(lsof -i:4000 -sTCP:LISTEN)",
+      "Bash(curl -sI http://localhost:3000/login)",
+      "Bash(curl -sv -X POST http://localhost:4000/v1/auth/register -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' -d '{\"email\":\"testuser2@visora.com\",\"password\":\"password123\",\"name\":\"testuser2\"}')",
+      "Bash(curl -s -X POST http://localhost:4000/v1/auth/register -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' -d '{\"email\":\"testuser2@visora.com\",\"password\":\"password123\",\"name\":\"testuser2\"}' -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(find / -maxdepth 6 -iname \"chromium-cli*\")",
+      "Bash(npm ls *)",
+      "Bash(node -e \"try{require.resolve\\('playwright'\\)}catch\\(e\\){console.log\\('no playwright'\\)}\")",
+      "Bash(curl -s -o /tmp/compose.html -w \"%{http_code}\\\\n\" http://localhost:3000/compose)",
+      "Bash(curl -s -o /tmp/compose2.html -w \"%{http_code}\\\\n\" http://localhost:3000/compose)"
+    ]
+  }
+}

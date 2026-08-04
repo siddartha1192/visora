@@ -172,7 +172,7 @@ export default function PostsPage() {
         logPost && "mr-[416px]",
       )}>
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">Posts</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Posts</h1>
           <p className="text-muted-foreground">
             Every run, with live status as the agent graph progresses.
           </p>
@@ -180,7 +180,7 @@ export default function PostsPage() {
 
         {isLoading && <p className="text-muted-foreground">Loading…</p>}
         {error && (
-          <p className="text-red-300">
+          <p className="text-destructive">
             {(error as Error).message} — is the API running on :4000?
           </p>
         )}
@@ -414,7 +414,7 @@ function PostRow({
           {isAdmin && !confirmDelete && (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
               title="Delete post (admin)"
             >
               <Trash2 className="h-3 w-3" />
@@ -426,8 +426,8 @@ function PostRow({
 
       {/* Admin delete confirmation */}
       {confirmDelete && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
-          <p className="text-xs text-red-300">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="text-xs text-destructive">
             Permanently delete this post record? This cannot be undone.
           </p>
           <div className="flex shrink-0 gap-2">
@@ -441,7 +441,7 @@ function PostRow({
             <button
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
-              className="flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
             >
               <Trash2 className="h-3 w-3" />
               {deleteMutation.isPending ? "Deleting…" : "Yes, delete"}
@@ -452,13 +452,13 @@ function PostRow({
 
       {/* Pending review */}
       {post.status === "pending_review" && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
-          <p className="text-xs text-yellow-300">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+          <p className="text-xs text-warning">
             Content is ready — review the image and caption before publishing.
           </p>
           <button
             onClick={onReview}
-            className="shrink-0 rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-400 transition-colors"
+            className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-warning-foreground hover:bg-warning/90 transition-colors"
           >
             Review & Approve
           </button>
@@ -468,18 +468,18 @@ function PostRow({
       {/* Scheduled ready — countdown or publishing spinner */}
       {isScheduledReady && (
         overdue ? (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400" />
-            <p className="text-xs text-emerald-300">Publishing to platforms…</p>
+          <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-success" />
+            <p className="text-xs text-success">Publishing to platforms…</p>
           </div>
         ) : countdownLabel ? (
-          <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2">
-            <Clock className="h-3.5 w-3.5 shrink-0 text-blue-400" />
-            <p className="text-xs text-blue-300">
+          <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <p className="text-xs text-primary">
               Approved · auto-publishes{" "}
               <span className="font-semibold">{countdownLabel}</span>
               {" "}
-              <span className="text-blue-400/70">
+              <span className="text-primary/70">
                 ({new Date(post.schedule!.runAt!).toLocaleString(undefined, {
                   month: "short", day: "numeric",
                   hour: "2-digit", minute: "2-digit",
@@ -492,7 +492,7 @@ function PostRow({
 
       {/* Error banner */}
       {post.status === "failed" && post.lastError && (
-        <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{post.lastError}</span>
         </div>
@@ -506,7 +506,7 @@ function PostRow({
             <button
               onClick={() => setRetryOpen((o) => !o)}
               disabled={retryMutation.isPending}
-              className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
             >
               <RotateCcw className={cn("h-3 w-3", retryMutation.isPending && "animate-spin")} />
               {retryMutation.isPending ? "Retrying…" : "Retry"}
@@ -514,13 +514,13 @@ function PostRow({
             </button>
 
             {retryOpen && (
-              <div className="absolute left-0 bottom-full z-20 mb-1 w-56 rounded-lg border border-border bg-background shadow-xl">
+              <div className="absolute left-0 bottom-full z-20 mb-1 w-56 rounded-lg border border-border bg-card shadow-elevate-md">
                 {post.primaryAssetId && (
                   <button
                     onClick={() => retryMutation.mutate("from_failed")}
                     className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left text-xs hover:bg-secondary rounded-t-lg transition-colors"
                   >
-                    <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                     <div>
                       <p className="font-medium text-foreground">Retry publish only</p>
                       <p className="text-muted-foreground">Re-attempt posting with existing generated content</p>
@@ -534,7 +534,7 @@ function PostRow({
                     post.primaryAssetId ? "rounded-b-lg border-t border-border" : "rounded-lg",
                   )}
                 >
-                  <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
+                  <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                   <div>
                     <p className="font-medium text-foreground">Rerun from scratch</p>
                     <p className="text-muted-foreground">Regenerate content and retry everything</p>
@@ -622,7 +622,7 @@ function ReviewModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-border bg-background shadow-2xl"
+        className="relative w-full max-w-2xl rounded-lg border border-border bg-card shadow-elevate-lg"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -771,7 +771,7 @@ function ReviewModal({
                     </p>
                   )}
                   {publishAt && publishAt <= new Date() && (
-                    <p className="text-xs text-amber-400">
+                    <p className="text-xs text-warning">
                       Selected time is in the past — pick a future date.
                     </p>
                   )}
@@ -783,7 +783,7 @@ function ReviewModal({
 
         {/* Error */}
         {error && (
-          <div className="mx-6 mb-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <div className="mx-6 mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {error}
           </div>
@@ -797,7 +797,7 @@ function ReviewModal({
               (scheduleMode === "scheduled" && (!publishAt || publishAt <= new Date()))
             }
             onClick={handleApprove}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <CheckCircle className="h-4 w-4" />
             {approveLabel}
@@ -805,7 +805,7 @@ function ReviewModal({
           <button
             disabled={isPending}
             onClick={onReject}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary py-3 text-sm font-semibold text-muted-foreground hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 disabled:opacity-50 transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary py-3 text-sm font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-50 transition-colors"
           >
             <XCircle className="h-4 w-4" />
             {isPending ? "Processing…" : "Reject"}

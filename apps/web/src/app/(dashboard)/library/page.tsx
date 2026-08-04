@@ -60,7 +60,7 @@ export default function LibraryPage() {
     <>
       <div className="mx-auto max-w-6xl space-y-6">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">Library</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Library</h1>
           <p className="text-muted-foreground">
             Every asset the agents have produced, with per-platform variants.
           </p>
@@ -101,7 +101,7 @@ export default function LibraryPage() {
         )}
 
         {error && (
-          <p className="text-red-300 text-sm">
+          <p className="text-destructive text-sm">
             Failed to load assets: {(error as Error).message}
           </p>
         )}
