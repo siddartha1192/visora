@@ -1,0 +1,46 @@
+# dependencies
+api/node_modules/
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# test / coverage
+coverage/
+
+# misc
+.cache/
+tmp/
+
+# local image uploads (dev-only, replaced by S3 in production)
+apps/api/uploads/
+
+# structured JSON logs (dev-only, replaced by DB/S3 transport in production)
+apps/api/logs/
+
+# Claude Code local settings (machine-specific, not for sharing)
+.claude/settings.local.json
+
+howtostart.txt
+instagram.ps
