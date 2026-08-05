@@ -58,6 +58,12 @@ export type AssetSource = (typeof ASSET_SOURCES)[number];
 export const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
+// Platform-wide account tier — distinct from WorkspaceRole (which scopes a user
+// within a single workspace). "root" can create/demote admins; "admin" manages
+// normal users and platform config; "user" is a self-registered account.
+export const USER_ROLES = ["root", "admin", "user"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export const JOB_STATES = [
   "pending",
   "active",

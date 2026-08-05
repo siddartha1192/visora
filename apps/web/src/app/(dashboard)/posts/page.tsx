@@ -120,7 +120,7 @@ export default function PostsPage() {
     queryFn: () => api.getMe(),
     staleTime: 60_000,
   });
-  const isAdmin = me?.isAdmin ?? false;
+  const isAdmin = me?.role === "admin" || me?.role === "root";
 
   const [lightbox, setLightbox] = useState<{ url: string; post: PostDTO } | null>(null);
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);

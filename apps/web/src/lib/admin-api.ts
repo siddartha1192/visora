@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@visora/shared";
+import type { ApiResponse, UserRole } from "@visora/shared";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 
@@ -47,7 +47,7 @@ export interface AdminUser {
   name: string;
   email: string;
   status: "active" | "invited" | "suspended";
-  isAdmin: boolean;
+  role: UserRole;
   workspaceCount: number;
   lastLoginAt: string | null;
   createdAt: string;
@@ -164,7 +164,7 @@ export const adminApi = {
     }),
 
   // Admin identity
-  me: () => request<{ id: string; name: string; email: string; isAdmin: boolean }>("/admin/me"),
+  me: () => request<{ id: string; name: string; email: string; role: UserRole }>("/admin/me"),
 
   // Posts
   listPosts: (params?: { page?: number; pageSize?: number; status?: string; q?: string }) => {
@@ -180,9 +180,9 @@ export const adminApi = {
 
   // Users
   listUsers: () => request<AdminUser[]>("/admin/users"),
-  createUser: (data: { name: string; email: string; password: string; isAdmin?: boolean }) =>
+  createUser: (data: { name: string; email: string; password: string; role?: "user" | "admin" }) =>
     request<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(data) }),
-  updateUser: (id: string, patch: Partial<{ status: string; isAdmin: boolean }>) =>
+  updateUser: (id: string, patch: Partial<{ status: string; role: "user" | "admin" }>) =>
     request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteUser: (id: string) =>
     request<{ deleted: string }>(`/admin/users/${id}`, { method: "DELETE" }),

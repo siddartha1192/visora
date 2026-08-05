@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
 import { LlmConfigModel } from "./models/llm-config.model.js";
+import { UserModel } from "./models/user.model.js";
 
 /**
  * Seeds the LlmConfig collection on first boot using env-var credentials.
@@ -35,4 +36,20 @@ export async function seedLlmConfigs(): Promise<void> {
 
   await LlmConfigModel.insertMany(docs);
   logger.info({ seeded: docs.length }, "Seeded LLM configs from env vars");
+}
+
+/**
+ * One-time backfill from the legacy `isAdmin` boolean to the `role` field
+ * (root | admin | user) introduced afterwards. Only touches documents that
+ * predate `role` — new documents always get `role` from the schema default,
+ * so this becomes a no-op once every existing user has been migrated.
+ */
+export async function migrateUserRoles(): Promise<void> {
+  const result = await UserModel.updateMany(
+    { role: { $exists: false } },
+    [{ $set: { role: { $cond: [{ $eq: ["$isAdmin", true] }, "admin", "user"] } } }],
+  );
+  if (result.modifiedCount > 0) {
+    logger.info({ migrated: result.modifiedCount }, "Migrated users from isAdmin to role");
+  }
 }

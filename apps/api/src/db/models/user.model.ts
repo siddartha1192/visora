@@ -1,5 +1,5 @@
 import { Schema, model, type InferSchemaType, type Types } from "mongoose";
-import { WORKSPACE_ROLES } from "@visora/shared";
+import { USER_ROLES, WORKSPACE_ROLES } from "@visora/shared";
 
 const membershipSchema = new Schema(
   {
@@ -22,7 +22,7 @@ const userSchema = new Schema(
       enum: ["active", "invited", "suspended"],
       default: "active",
     },
-    isAdmin: { type: Boolean, default: false },
+    role: { type: String, enum: USER_ROLES, default: "user" },
     lastLoginAt: { type: Date },
   },
   { timestamps: true },

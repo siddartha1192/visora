@@ -98,8 +98,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Administration section — only visible to admin users */}
-        {me?.isAdmin && (
+        {/* Administration section — only visible to admin/root users */}
+        {(me?.role === "admin" || me?.role === "root") && (
           <div className="mt-4 border-t border-border pt-4">
             <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
               Administration

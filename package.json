@@ -16,7 +16,10 @@
     "dev:worker": "pnpm --filter @visora/api dev:worker",
     "dev:web": "pnpm --filter @visora/web dev",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
-    "infra:down": "docker compose -f infra/docker-compose.yml down"
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

@@ -70,14 +70,12 @@ function StatCard({ label, value, sub, icon: Icon, accent }: {
   accent?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-secondary/10 p-5">
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-        <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", accent ?? "bg-secondary/50")}>
-          <Icon className="h-3.5 w-3.5" />
-        </div>
+    <div className="flex flex-col items-center rounded-xl border border-border bg-secondary/10 p-5 text-center">
+      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", accent ?? "bg-secondary/50")}>
+        <Icon className="h-3.5 w-3.5" />
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.02em]">{value}</p>
+      <p className="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-[-0.02em]">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
