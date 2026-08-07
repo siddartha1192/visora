@@ -173,7 +173,7 @@ export default function DatabasePage() {
           onClick={() => setSelectedDoc(null)}
         >
           <div
-            className="w-full max-w-2xl rounded-xl border border-border bg-background shadow-2xl flex flex-col max-h-[80vh]"
+            className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-elevate-lg flex flex-col max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">

@@ -2,6 +2,7 @@ import argon2 from "argon2";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Model } from "mongoose";
 import { Types } from "mongoose";
+import type { UserRole } from "@visora/shared";
 import {
   AgentLogModel,
   AssetModel,
@@ -12,7 +13,7 @@ import {
   UserModel,
   WorkspaceModel,
 } from "../../db/models/index.js";
-import { BadRequestError, ConflictError, NotFoundError } from "../../lib/errors.js";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../lib/errors.js";
 import { ok, created } from "../reply.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ function formatUser(u: InstanceType<typeof UserModel>) {
     name: u.name,
     email: u.email,
     status: u.status,
-    isAdmin: u.isAdmin ?? false,
+    role: (u.role ?? "user") as UserRole,
     workspaceCount: u.workspaces.length,
     lastLoginAt: u.lastLoginAt ?? null,
     createdAt: (u as unknown as { createdAt: Date }).createdAt,
@@ -57,7 +58,7 @@ export async function adminMe(req: FastifyRequest, reply: FastifyReply) {
     id: user._id.toHexString(),
     name: user.name,
     email: user.email,
-    isAdmin: user.isAdmin ?? false,
+    role: (user.role ?? "user") as UserRole,
   });
 }
 
@@ -69,12 +70,19 @@ export async function listUsers(_req: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function createUser(req: FastifyRequest, reply: FastifyReply) {
-  const { name, email, password, isAdmin = false } = req.body as {
+  const { name, email, password, role = "user" } = req.body as {
     name: string;
     email: string;
     password: string;
-    isAdmin?: boolean;
+    role?: UserRole;
   };
+
+  // Only root can create admins. "root" itself is never creatable through the
+  // dashboard — it only comes from the ROOT_EMAILS env var.
+  if (role === "root") throw new BadRequestError("Root cannot be granted via the dashboard");
+  if (role === "admin" && req.auth?.userRole !== "root") {
+    throw new ForbiddenError("Only root can create admin accounts");
+  }
 
   const existing = await UserModel.findOne({ email: email.toLowerCase() });
   if (existing) throw new ConflictError("Email already registered");
@@ -84,7 +92,7 @@ export async function createUser(req: FastifyRequest, reply: FastifyReply) {
     name,
     email: email.toLowerCase(),
     passwordHash,
-    isAdmin,
+    role,
     status: "active",
   });
 
@@ -101,23 +109,44 @@ export async function createUser(req: FastifyRequest, reply: FastifyReply) {
 
 export async function updateUser(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
-  const patch = req.body as Partial<{ status: string; isAdmin: boolean }>;
+  const patch = req.body as Partial<{ status: string; role: UserRole }>;
+  const isRoot = req.auth?.userRole === "root";
 
-  const user = await UserModel.findByIdAndUpdate(
-    new Types.ObjectId(id),
-    { $set: patch },
-    { new: true },
-  );
-  if (!user) throw new NotFoundError("User");
-  return ok(reply, formatUser(user));
+  if (patch.role === "root") throw new BadRequestError("Root cannot be granted via the dashboard");
+  if (patch.role !== undefined && id === req.auth!.userId) {
+    throw new BadRequestError("Cannot change your own role");
+  }
+  if (patch.role !== undefined && !isRoot) {
+    throw new ForbiddenError("Only root can change a user's role");
+  }
+
+  const target = await UserModel.findById(new Types.ObjectId(id));
+  if (!target) throw new NotFoundError("User");
+
+  // Non-root admins may only manage plain user accounts — editing another
+  // admin (or root) requires root, even for a status-only change.
+  if (target.role !== "user" && !isRoot) {
+    throw new ForbiddenError("Only root can modify an admin or root account");
+  }
+
+  Object.assign(target, patch);
+  await target.save();
+  return ok(reply, formatUser(target));
 }
 
 export async function deleteUser(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
   // Prevent self-deletion
   if (id === req.auth!.userId) throw new BadRequestError("Cannot delete your own account");
-  const user = await UserModel.findByIdAndDelete(new Types.ObjectId(id));
-  if (!user) throw new NotFoundError("User");
+
+  const target = await UserModel.findById(new Types.ObjectId(id));
+  if (!target) throw new NotFoundError("User");
+
+  if (target.role !== "user" && req.auth?.userRole !== "root") {
+    throw new ForbiddenError("Only root can delete an admin or root account");
+  }
+
+  await target.deleteOne();
   return ok(reply, { deleted: id });
 }
 

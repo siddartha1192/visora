@@ -103,9 +103,9 @@ function LogRow({ entry, isPending }: { entry: LogEntry; isPending: boolean }) {
   const { Icon } = meta;
 
   const statusStyles = {
-    started:   { icon: "text-blue-400 animate-spin",   row: "border-blue-500/20 bg-blue-500/5"    },
-    succeeded: { icon: "text-emerald-400",              row: "border-emerald-500/15 bg-emerald-500/5" },
-    failed:    { icon: "text-red-400",                  row: "border-red-500/20 bg-red-500/5"      },
+    started:   { icon: "text-primary animate-spin",     row: "border-primary/20 bg-primary/5"       },
+    succeeded: { icon: "text-success",                  row: "border-success/15 bg-success/5"       },
+    failed:    { icon: "text-destructive",               row: "border-destructive/20 bg-destructive/5" },
     skipped:   { icon: "text-muted-foreground",         row: "border-border bg-secondary/20"        },
   }[effectiveStatus];
 
@@ -174,7 +174,7 @@ function LogRow({ entry, isPending }: { entry: LogEntry; isPending: boolean }) {
           {/* Message */}
           <p className={cn(
             "mt-1 text-xs leading-relaxed",
-            entry.status === "failed" ? "text-red-300" : "text-foreground/75",
+            entry.status === "failed" ? "text-destructive" : "text-foreground/75",
             isPending && "italic text-muted-foreground",
           )}>
             {isPending ? "Running…" : entry.message}
@@ -182,7 +182,7 @@ function LogRow({ entry, isPending }: { entry: LogEntry; isPending: boolean }) {
 
           {/* Inline error detail */}
           {entry.error && !isPending && (
-            <p className="mt-1 break-all font-mono text-[10px] text-red-400">
+            <p className="mt-1 break-all font-mono text-[10px] text-destructive">
               {entry.error}
             </p>
           )}
@@ -235,7 +235,7 @@ export function LogDrawer({ postId, postWorkflow, onClose }: LogDrawerProps) {
                  "done";
 
   return (
-    <div className="fixed right-0 top-0 z-40 flex h-screen w-[400px] flex-col border-l border-border bg-background shadow-2xl">
+    <div className="fixed right-0 top-0 z-40 flex h-screen w-[400px] flex-col border-l border-border bg-card shadow-elevate-lg">
       {/* Header */}
       <div className="flex items-start justify-between border-b border-border px-5 py-4">
         <div>
@@ -271,15 +271,15 @@ export function LogDrawer({ postId, postWorkflow, onClose }: LogDrawerProps) {
       <div className={cn(
         "flex items-center gap-2 border-b border-border px-5 py-2.5 text-xs font-medium",
         pipelineStatus === "loading" && "text-muted-foreground",
-        pipelineStatus === "running" && "bg-blue-500/5 text-blue-400",
-        pipelineStatus === "done"    && "bg-emerald-500/5 text-emerald-400",
-        pipelineStatus === "failed"  && "bg-red-500/5 text-red-400",
+        pipelineStatus === "running" && "bg-primary/5 text-primary",
+        pipelineStatus === "done"    && "bg-success/5 text-success",
+        pipelineStatus === "failed"  && "bg-destructive/5 text-destructive",
       )}>
         {pipelineStatus === "loading" && (
           <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading logs…</>
         )}
         {pipelineStatus === "running" && (
-          <><span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" /> Pipeline running — auto-refreshing</>
+          <><span className="h-2 w-2 animate-pulse rounded-full bg-primary" /> Pipeline running — auto-refreshing</>
         )}
         {pipelineStatus === "done" && (
           <><CheckCircle2 className="h-3.5 w-3.5" /> Pipeline completed successfully</>

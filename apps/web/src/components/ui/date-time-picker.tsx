@@ -134,7 +134,7 @@ export function DateTimePicker({
 
       {/* Popover */}
       {open && (
-        <div className="absolute left-0 z-50 mt-2 w-72 rounded-xl border border-border bg-background shadow-2xl">
+        <div className="animate-fade-in absolute left-0 z-50 mt-2 w-72 rounded-lg border border-border bg-card shadow-elevate-lg">
 
           {/* ── Month / year header ── */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2">

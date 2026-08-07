@@ -237,7 +237,7 @@ export function PromptTemplatePanel({
               key={t.label}
               type="button"
               onClick={() => { onSelect(t.text); setOpen(false); }}
-              className="group flex flex-col gap-1.5 rounded-xl border border-border bg-secondary/30 p-3 text-left transition-all hover:border-primary/40 hover:bg-primary/5"
+              className="group flex flex-col gap-1.5 rounded-lg border border-border bg-secondary/30 p-3 text-left transition-all duration-150 hover:border-primary/40 hover:bg-primary/5"
             >
               <span className="text-lg leading-none">{t.emoji}</span>
               <p className="text-xs font-semibold text-foreground">{t.label}</p>

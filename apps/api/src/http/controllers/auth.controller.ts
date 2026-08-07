@@ -62,6 +62,6 @@ export async function me(req: FastifyRequest, reply: FastifyReply) {
     name: user?.name ?? req.auth?.userName ?? "",
     email: user?.email ?? req.auth?.userEmail ?? "",
     avatarUrl: user?.avatarUrl ?? null,
-    isAdmin: user?.isAdmin ?? false,
+    role: user?.role ?? "user",
   });
 }

@@ -25,7 +25,7 @@ export default function CalendarPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Calendar</h1>
         <p className="text-muted-foreground">Upcoming scheduled posts.</p>
       </header>
 

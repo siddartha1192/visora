@@ -6,12 +6,12 @@ import { LogOut, ChevronDown, User } from "lucide-react";
 import { api, type UserProfile } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/** Deterministic pastel background from the user's name */
+/** Deterministic, muted background from the user's name — restrained, not candy-colored */
 function avatarColor(name: string): string {
   const palette = [
-    "bg-violet-500", "bg-blue-500", "bg-emerald-500",
-    "bg-rose-500",   "bg-amber-500", "bg-cyan-500",
-    "bg-pink-500",   "bg-indigo-500",
+    "bg-blue-600", "bg-indigo-600", "bg-teal-600",
+    "bg-rose-600", "bg-amber-600",  "bg-cyan-600",
+    "bg-fuchsia-600", "bg-emerald-600",
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -92,7 +92,7 @@ export function UserMenu({ onLogout }: UserMenuProps) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-secondary/60"
+        className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors duration-150 hover:bg-secondary/60"
       >
         <UserAvatar user={user} />
         <span className="hidden max-w-[140px] truncate text-sm font-medium sm:block">
@@ -100,14 +100,14 @@ export function UserMenu({ onLogout }: UserMenuProps) {
         </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150",
             open && "rotate-180",
           )}
         />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-background shadow-xl">
+        <div className="animate-fade-in absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-border bg-card shadow-elevate-lg">
           {/* Identity */}
           <div className="flex items-center gap-3 px-4 py-3.5">
             <UserAvatar user={user} />
@@ -123,7 +123,7 @@ export function UserMenu({ onLogout }: UserMenuProps) {
           <div className="p-1.5">
             <button
               onClick={() => { setOpen(false); onLogout(); }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
             >
               <LogOut className="h-4 w-4" />
               Sign out

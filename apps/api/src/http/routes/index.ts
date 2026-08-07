@@ -358,7 +358,7 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
     { prefix: "/v1" },
   );
 
-  // ── Admin routes — require JWT + isAdmin ────────────────────────────────────
+  // ── Admin routes — require JWT + admin/root role ────────────────────────────
   app.register(
     async (r) => {
       r.addHook("preHandler", authenticate);
@@ -393,7 +393,9 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
             type: "object", required: ["name", "email", "password"],
             properties: {
               name: { type: "string" }, email: { type: "string" },
-              password: { type: "string", minLength: 8 }, isAdmin: { type: "boolean" },
+              password: { type: "string", minLength: 8 },
+              // "root" is intentionally not a valid value — only grantable via ROOT_EMAILS.
+              role: { type: "string", enum: ["user", "admin"] },
             },
           },
         },
@@ -406,7 +408,7 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
             type: "object",
             properties: {
               status: { type: "string", enum: ["active", "suspended"] },
-              isAdmin: { type: "boolean" },
+              role: { type: "string", enum: ["user", "admin"] },
             },
           },
         },

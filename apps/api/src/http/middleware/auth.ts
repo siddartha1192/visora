@@ -1,5 +1,6 @@
 import argon2 from "argon2";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { UserRole } from "@visora/shared";
 import { Types } from "mongoose";
 import { UserModel, WorkspaceModel } from "../../db/models/index.js";
 import { ForbiddenError, UnauthorizedError } from "../../lib/errors.js";
@@ -9,6 +10,7 @@ export interface AuthContext {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  userRole?: UserRole;
   workspaceId: string;
   via: "jwt" | "api_key";
   scopes: string[];
@@ -88,4 +90,5 @@ export async function assertMembership(req: FastifyRequest) {
   // Attach user identity so request-scoped loggers can include name + email.
   auth.userName = user?.name;
   auth.userEmail = user?.email;
+  auth.userRole = user?.role as UserRole | undefined;
 }

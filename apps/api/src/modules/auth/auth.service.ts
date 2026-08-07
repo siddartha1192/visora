@@ -47,13 +47,15 @@ export async function verifyCredentials(input: LoginInput): Promise<AuthedUser> 
   const ok = await argon2.verify(user.passwordHash, input.password);
   if (!ok) throw new UnauthorizedError("Invalid email or password");
 
-  // Auto-promote emails listed in ADMIN_EMAILS env var.
-  const adminEmails = env.ADMIN_EMAILS
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (adminEmails.includes(user.email) && !user.isAdmin) {
-    user.isAdmin = true;
+  // Auto-promote emails listed in ROOT_EMAILS on login. This is the only
+  // account-creation-independent path to a privileged role — admin accounts
+  // are created exclusively by an existing root through the admin dashboard
+  // (see admin.controller.ts createUser/updateUser). Only ever promotes,
+  // never demotes — a role change made through the dashboard won't be
+  // silently overwritten just by logging in.
+  const rootEmails = env.ROOT_EMAILS.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (rootEmails.includes(user.email) && user.role !== "root") {
+    user.role = "root";
   }
 
   user.lastLoginAt = new Date();

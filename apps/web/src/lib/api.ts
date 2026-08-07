@@ -4,6 +4,7 @@ import type {
   CreatePostInput,
   Paginated,
   PostDTO,
+  UserRole,
 } from "@visora/shared";
 
 export interface LogEntry {
@@ -87,7 +88,7 @@ export interface UserProfile {
   name: string;
   email: string;
   avatarUrl: string | null;
-  isAdmin: boolean;
+  role: UserRole;
 }
 
 export const api = {

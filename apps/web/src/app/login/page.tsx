@@ -44,12 +44,18 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <Sparkles className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Visora</h1>
-          <p className="text-sm text-muted-foreground">AI Visual Content Studio</p>
+    <main className="bg-grid relative flex min-h-screen items-center justify-center p-4">
+      <div className="pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_50%_50%_at_50%_0%,black,transparent)]" />
+
+      <div className="relative w-full max-w-sm space-y-8">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary shadow-elevate-md">
+            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          </span>
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-[-0.02em]">Visora</h1>
+            <p className="text-sm text-muted-foreground">AI Visual Content Studio</p>
+          </div>
         </div>
 
         <Card className="p-6">
@@ -57,22 +63,22 @@ export default function LoginPage() {
           <div className="mb-4 flex justify-end">
             <Link
               href="/admin/login"
-              className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors duration-150 hover:text-muted-foreground"
             >
               Admin Portal →
             </Link>
           </div>
 
           {/* Tab switcher */}
-          <div className="mb-6 flex rounded-lg border border-border p-1">
+          <div className="mb-6 flex rounded-md border border-border bg-muted/50 p-1">
             {(["login", "register"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setError(""); }}
                 className={cn(
-                  "flex-1 rounded-md py-1.5 text-sm font-medium capitalize transition-colors",
+                  "flex-1 rounded-[5px] py-1.5 text-sm font-medium capitalize transition-all duration-150",
                   tab === t
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-card text-foreground shadow-elevate-xs ring-1 ring-border"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -119,7 +125,7 @@ export default function LoginPage() {
             </Field>
 
             {error && (
-              <p className="rounded-lg bg-destructive/15 px-3 py-2 text-sm text-destructive">
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </p>
             )}
@@ -139,12 +145,12 @@ export default function LoginPage() {
 }
 
 const inputCls =
-  "w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
+  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-shadow duration-150 placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ring";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">{label}</label>
+      <label className="text-sm font-medium text-foreground/90">{label}</label>
       {children}
     </div>
   );

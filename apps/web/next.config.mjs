@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Self-contained server build (minimal node_modules) for Docker images.
+  output: "standalone",
   // Compile the shared workspace package from source.
   transpilePackages: ["@visora/shared"],
   images: {

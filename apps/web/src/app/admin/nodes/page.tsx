@@ -141,10 +141,10 @@ export default function NodesPage() {
           {/* Save bar */}
           <div className="flex items-center justify-between border-t border-border pt-4">
             {error && (
-              <p className="flex items-center gap-1.5 text-sm text-red-400"><AlertCircle className="h-3.5 w-3.5" />{error}</p>
+              <p className="flex items-center gap-1.5 text-sm text-destructive"><AlertCircle className="h-3.5 w-3.5" />{error}</p>
             )}
             {saved && !error && (
-              <p className="flex items-center gap-1.5 text-sm text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" />Saved</p>
+              <p className="flex items-center gap-1.5 text-sm text-success"><CheckCircle2 className="h-3.5 w-3.5" />Saved</p>
             )}
             {!saved && !error && <span />}
             <button
