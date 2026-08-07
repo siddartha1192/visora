@@ -42,6 +42,15 @@ interface PlannerDecision {
   reasoning: string;
 }
 
+const CONTENT_POLICY_SECTION = `
+CONTENT POLICY — strictly enforced. Refuse to plan or generate any content that:
+- Is pornographic or sexually explicit
+- Is derogatory toward any person or group
+- Promotes political parties, electoral candidates, or partisan political messaging
+- Expresses bias or discrimination based on gender, caste, religion, race, or ethnicity
+- Contains abusive, threatening, or harassing language
+If the brief violates these policies, return: { "workflow": "stock_discovery", "prompt": "nature", "platforms": [], "scheduleMode": "instant", "scheduledAt": null, "reasoning": "POLICY_VIOLATION: <brief reason>" }`;
+
 const PLATFORM_SECTION = `
 Platform detection:
 - platforms: list social media platforms mentioned in the brief.
@@ -73,6 +82,7 @@ The user has uploaded an image. Decide how to use it based on their brief:
 When workflow is "ai_enhance", write instructions: concise, specific DALL-E editing instructions that will achieve the look described in the brief.
 ${PLATFORM_SECTION}
 ${buildScheduleSection(nowUtc)}
+${CONTENT_POLICY_SECTION}
 
 Return JSON with:
 - workflow: "ai_enhance" | "passthrough"
@@ -95,6 +105,7 @@ Enhancement for stock_discovery:
 - When enhanceAfterStock is true, write enhanceInstructions: DALL-E editing instructions to apply that look.
 ${PLATFORM_SECTION}
 ${buildScheduleSection(nowUtc)}
+${CONTENT_POLICY_SECTION}
 
 Return JSON with:
 - workflow: "stock_discovery" | "ai_generate" | "scrape"
@@ -196,7 +207,7 @@ Return JSON with:
       generate: true,
       hashtags: [],
     },
-    usage: [{ node: "planner", provider: usage.provider, model: usage.model }],
+    usage: [{ node: "planner", ...usage }],
     logMessage: `Workflow: ${resolvedWorkflow} → ${platforms.join(", ")} (${resolvedScheduleMode})`,
     logData: {
       resolvedWorkflow,

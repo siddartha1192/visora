@@ -26,6 +26,13 @@ export interface LogsResponse {
   logs: LogEntry[];
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly code?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 
@@ -71,7 +78,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   const json = (await res.json()) as ApiResponse<T>;
-  if (!json.ok) throw new Error(json.error.message);
+  if (!json.ok) throw new ApiError(json.error.message, (json.error as Record<string, unknown>).code as string | undefined);
   return json.data;
 }
 
@@ -124,6 +131,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ mode }),
     }),
+  adminDeletePost: (id: string) =>
+    request<{ deleted: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
   uploadAsset: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);

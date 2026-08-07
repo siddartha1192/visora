@@ -68,8 +68,9 @@ export const JOB_STATES = [
 export type JobState = (typeof JOB_STATES)[number];
 
 export const AGENT_NODES = [
-  "pipeline",   // pseudo-node for pipeline-level start/complete/fail events
+  "pipeline",     // pseudo-node for pipeline-level start/complete/fail events
   "ingest",
+  "moderation",   // content policy gate — runs after ingest, before any AI call
   "planner",
   "router",
   "passthrough",

@@ -416,6 +416,25 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
         schema: { tags: ["admin"], summary: "Delete user", security: bearer, params: objectIdParam },
       }, admin.deleteUser);
 
+      r.get("/posts", {
+        schema: {
+          tags: ["admin"], summary: "List all posts across all workspaces", security: bearer,
+          querystring: {
+            type: "object",
+            properties: {
+              page:     { type: "number", default: 1, minimum: 1 },
+              pageSize: { type: "number", default: 30, minimum: 1, maximum: 50 },
+              status:   { type: "string" },
+              q:        { type: "string" },
+            },
+          },
+        },
+      }, admin.listAllPosts);
+
+      r.delete("/posts/:id", {
+        schema: { tags: ["admin"], summary: "Hard-delete a post record", security: bearer, params: objectIdParam },
+      }, admin.deletePost);
+
       r.get("/llm-configs", {
         schema: { tags: ["admin"], summary: "List LLM configs", security: bearer },
       }, admin.listLlmConfigs);
@@ -477,6 +496,28 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
           },
         },
       }, admin.updateNodeConfig);
+
+      r.get("/database/collections", {
+        schema: { tags: ["admin"], summary: "List collections with counts", security: bearer },
+      }, admin.listCollections);
+
+      r.get("/database/collections/:collection/docs", {
+        schema: {
+          tags: ["admin"], summary: "Paginated documents for a collection", security: bearer,
+          params: {
+            type: "object",
+            properties: { collection: { type: "string" } },
+            required: ["collection"],
+          },
+          querystring: {
+            type: "object",
+            properties: {
+              page:     { type: "number", default: 1,  minimum: 1 },
+              pageSize: { type: "number", default: 20, minimum: 1, maximum: 50 },
+            },
+          },
+        },
+      }, admin.listCollectionDocs);
     },
     { prefix: "/v1/admin" },
   );

@@ -1,8 +1,11 @@
 import argon2 from "argon2";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { Model } from "mongoose";
 import { Types } from "mongoose";
 import {
   AgentLogModel,
+  AssetModel,
+  JobModel,
   LlmConfigModel,
   NodeConfigModel,
   PostModel,
@@ -115,6 +118,74 @@ export async function deleteUser(req: FastifyRequest, reply: FastifyReply) {
   if (id === req.auth!.userId) throw new BadRequestError("Cannot delete your own account");
   const user = await UserModel.findByIdAndDelete(new Types.ObjectId(id));
   if (!user) throw new NotFoundError("User");
+  return ok(reply, { deleted: id });
+}
+
+// ── Posts ─────────────────────────────────────────────────────────────────────
+
+export async function listAllPosts(req: FastifyRequest, reply: FastifyReply) {
+  const { page = 1, pageSize = 30, status, q } = req.query as {
+    page?: number; pageSize?: number; status?: string; q?: string;
+  };
+  const safeSize = Math.min(Number(pageSize), 50);
+  const safePage = Math.max(Number(page), 1);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter: Record<string, any> = {};
+  if (status) filter.status = status;
+  if (q) filter.$or = [
+    { "input.prompt": { $regex: q, $options: "i" } },
+    { "input.brief": { $regex: q, $options: "i" } },
+    { "input.instructions": { $regex: q, $options: "i" } },
+  ];
+
+  const [posts, total] = await Promise.all([
+    PostModel.find(filter).sort({ createdAt: -1 }).skip((safePage - 1) * safeSize).limit(safeSize).lean(),
+    PostModel.countDocuments(filter),
+  ]);
+
+  // Batch-resolve workspace → user (email + name) for display.
+  // Users have a workspaces[] array of memberships; match on workspaces.workspaceId.
+  const wsIds = [...new Set(posts.map((p) => p.workspaceId.toString()))];
+  const wsObjectIds = wsIds.map((id) => new Types.ObjectId(id));
+  const users = await UserModel.find({ "workspaces.workspaceId": { $in: wsObjectIds } })
+    .select("workspaces email name")
+    .lean();
+  // Map each workspaceId to the first user that has that workspace membership
+  const wsToUser = new Map<string, { email: string; name: string }>();
+  for (const u of users) {
+    for (const m of u.workspaces ?? []) {
+      const wsId = (m as { workspaceId: Types.ObjectId }).workspaceId.toString();
+      if (!wsToUser.has(wsId)) wsToUser.set(wsId, { email: u.email, name: u.name });
+    }
+  }
+
+  const items = posts.map((p) => {
+    const owner = wsToUser.get(p.workspaceId.toString());
+    return {
+      id: (p._id as Types.ObjectId).toString(),
+      workspaceId: p.workspaceId.toString(),
+      ownerEmail: owner?.email ?? "—",
+      ownerName: owner?.name ?? "—",
+      workflow: p.workflow,
+      status: p.status,
+      brief: (p.input as Record<string, string | undefined>)?.brief ?? undefined,
+      prompt: (p.input as Record<string, string | undefined>)?.prompt ?? undefined,
+      instructions: (p.input as Record<string, string | undefined>)?.instructions ?? undefined,
+      platforms: (p.targets ?? []).map((t: { platform: string }) => t.platform),
+      primaryAssetId: p.primaryAssetId?.toString(),
+      lastError: p.lastError ?? undefined,
+      createdAt: (p as unknown as { createdAt: Date }).createdAt.toISOString(),
+    };
+  });
+
+  return ok(reply, { items, total, page: safePage, pageSize: safeSize });
+}
+
+export async function deletePost(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string };
+  const post = await PostModel.findByIdAndDelete(new Types.ObjectId(id));
+  if (!post) throw new NotFoundError("Post");
   return ok(reply, { deleted: id });
 }
 
@@ -372,4 +443,50 @@ export async function updateNodeConfig(req: FastifyRequest, reply: FastifyReply)
       enhancement: toRef((a as Record<string, unknown>).enhancement),
     },
   });
+}
+
+// ── Database explorer ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DB_COLLECTIONS: ReadonlyArray<{ name: string; model: Model<any> }> = [
+  { name: "users",       model: UserModel       },
+  { name: "workspaces",  model: WorkspaceModel  },
+  { name: "posts",       model: PostModel       },
+  { name: "assets",      model: AssetModel      },
+  { name: "jobs",        model: JobModel        },
+  { name: "agentlogs",   model: AgentLogModel   },
+  { name: "llmconfigs",  model: LlmConfigModel  },
+  { name: "nodeconfigs", model: NodeConfigModel },
+];
+
+export async function listCollections(_req: FastifyRequest, reply: FastifyReply) {
+  const counts = await Promise.all(DB_COLLECTIONS.map((c) => c.model.countDocuments()));
+  return ok(reply, DB_COLLECTIONS.map((c, i) => ({ name: c.name, count: counts[i] })));
+}
+
+export async function listCollectionDocs(req: FastifyRequest, reply: FastifyReply) {
+  const { collection } = req.params as { collection: string };
+  const { page = 1, pageSize = 20 } = req.query as { page?: number; pageSize?: number };
+
+  const entry = DB_COLLECTIONS.find((c) => c.name === collection);
+  if (!entry) throw new NotFoundError("Collection");
+
+  const safeSize = Math.min(Number(pageSize), 50);
+  const safePage = Math.max(Number(page), 1);
+
+  const [rawDocs, total] = await Promise.all([
+    entry.model.find().sort({ createdAt: -1 }).skip((safePage - 1) * safeSize).limit(safeSize).lean(),
+    entry.model.countDocuments(),
+  ]);
+
+  const docs = (rawDocs as Record<string, unknown>[]).map((doc) => {
+    const d = { ...doc };
+    if (collection === "users") delete d["passwordHash"];
+    if (collection === "llmconfigs" && typeof d["apiKey"] === "string") {
+      d["apiKey"] = maskApiKey(d["apiKey"] as string);
+    }
+    return d;
+  });
+
+  return ok(reply, { items: docs, total, page: safePage, pageSize: safeSize });
 }

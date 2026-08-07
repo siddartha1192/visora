@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PromptTemplatePanel } from "@/components/ui/prompt-templates";
+import { ContentPolicyModal } from "@/components/ui/content-policy-modal";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 const PLACEHOLDER_ACCOUNT = "17841480000696385";
 
@@ -19,6 +20,7 @@ export default function AutonomousPage() {
   const [targets, setTargets] = useState<Platform[]>([]);
   const [scheduleMode, setScheduleMode] = useState<null | "instant" | "scheduled">(null);
   const [runAt, setRunAt] = useState<Date | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
 
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadAsset(file),
@@ -31,6 +33,11 @@ export default function AutonomousPage() {
   });
 
   const submit = useMutation({
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === "CONTENT_POLICY_VIOLATION") {
+        setPolicyError(err.message);
+      }
+    },
     mutationFn: () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const schedule =
@@ -56,6 +63,13 @@ export default function AutonomousPage() {
   const disabled = submit.isPending || brief.trim().length < 10;
 
   return (
+    <>
+    {policyError && (
+      <ContentPolicyModal
+        message={policyError}
+        onDismiss={() => { setPolicyError(null); submit.reset(); }}
+      />
+    )}
     <div className="mx-auto max-w-3xl space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -239,7 +253,7 @@ export default function AutonomousPage() {
               ✓ Queued — post {submit.data.id.slice(-6)} ({submit.data.status})
             </span>
           )}
-          {submit.isError && (
+          {submit.isError && !policyError && (
             <span className="text-sm text-red-300">
               {(submit.error as Error).message}
             </span>
@@ -247,5 +261,6 @@ export default function AutonomousPage() {
         </div>
       </Card>
     </div>
+    </>
   );
 }

@@ -118,6 +118,41 @@ export interface NodeConfig {
   };
 }
 
+export interface AdminPost {
+  id: string;
+  workspaceId: string;
+  ownerEmail: string;
+  ownerName: string;
+  workflow: string;
+  status: string;
+  brief?: string;
+  prompt?: string;
+  instructions?: string;
+  platforms: string[];
+  primaryAssetId?: string;
+  lastError?: string;
+  createdAt: string;
+}
+
+export interface AdminPostsPage {
+  items: AdminPost[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface DbCollection {
+  name: string;
+  count: number;
+}
+
+export interface DbDocsPage {
+  items: Record<string, unknown>[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 export const adminApi = {
@@ -130,6 +165,18 @@ export const adminApi = {
 
   // Admin identity
   me: () => request<{ id: string; name: string; email: string; isAdmin: boolean }>("/admin/me"),
+
+  // Posts
+  listPosts: (params?: { page?: number; pageSize?: number; status?: string; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page)     qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    if (params?.status)   qs.set("status", params.status);
+    if (params?.q)        qs.set("q", params.q);
+    return request<AdminPostsPage>(`/admin/posts?${qs}`);
+  },
+  deletePost: (id: string) =>
+    request<{ deleted: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
 
   // Users
   listUsers: () => request<AdminUser[]>("/admin/users"),
@@ -164,4 +211,11 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify({ assignments }),
     }),
+
+  // Database explorer (read-only)
+  listDbCollections: () => request<DbCollection[]>("/admin/database/collections"),
+  listDbDocs: (collection: string, page = 1, pageSize = 20) =>
+    request<DbDocsPage>(
+      `/admin/database/collections/${collection}/docs?page=${page}&pageSize=${pageSize}`,
+    ),
 };

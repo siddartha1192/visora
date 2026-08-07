@@ -10,6 +10,7 @@ import {
   retryPost,
 } from "../../modules/posts/post.service.js";
 import { accepted, ok } from "../reply.js";
+import { moderateTexts, ContentPolicyViolationError, HIGH_RISK_KEYWORDS } from "../../lib/moderation.js";
 
 /**
  * The workflow entrypoint. Validates against the discriminated union (so the
@@ -18,6 +19,41 @@ import { accepted, ok } from "../reply.js";
  */
 export async function create(req: FastifyRequest, reply: FastifyReply) {
   const input = createPostSchema.parse(req.body);
+
+  // Screen all free-text fields before queuing — fastest possible rejection point.
+  const textsToScreen = [
+    (input as { brief?: string }).brief,
+    (input as { prompt?: string }).prompt,
+    (input as { instructions?: string }).instructions,
+    (input as { context?: string }).context,
+    (input as { enhanceInstructions?: string }).enhanceInstructions,
+    input.caption?.text,
+  ];
+
+  // Keyword pre-filter before the API call — catches terms the scoring threshold misses.
+  const allText = textsToScreen.filter(Boolean).join(" ");
+  if (HIGH_RISK_KEYWORDS.some((re) => re.test(allText))) {
+    return reply.code(422).send({
+      ok: false,
+      error: {
+        code: "CONTENT_POLICY_VIOLATION",
+        message: "Your content contains terms that are not permitted on this platform. Please revise your content and try again.",
+      },
+    });
+  }
+
+  try {
+    await moderateTexts(textsToScreen);
+  } catch (err) {
+    if (err instanceof ContentPolicyViolationError) {
+      return reply.code(422).send({
+        ok: false,
+        error: { code: err.code, message: err.userMessage },
+      });
+    }
+    throw err;
+  }
+
   const dto = await createPost({
     workspaceId: req.auth!.workspaceId,
     authorId: req.auth!.userId ?? req.auth!.workspaceId,

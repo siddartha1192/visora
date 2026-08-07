@@ -17,7 +17,7 @@ import { clearAuth, api } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserMenu } from "@/components/ui/user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Users, Cpu, GitBranch, BarChart3 } from "lucide-react";
+import { Users, Cpu, GitBranch, BarChart3, Database } from "lucide-react";
 
 const NAV = [
   { href: "/compose",    label: "Compose",    icon: Wand2         },
@@ -33,6 +33,7 @@ const ADMIN_NAV = [
   { href: "/admin/users",     label: "Users",       icon: Users      },
   { href: "/admin/llms",      label: "LLM Configs", icon: Cpu        },
   { href: "/admin/nodes",     label: "Node Config", icon: GitBranch  },
+  { href: "/admin/database",  label: "Database",    icon: Database   },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
