@@ -27,7 +27,8 @@
       "Bash(python3 -m json.tool)",
       "Bash(pkill -f \"tsx watch src/index.ts\")",
       "Bash(mongosh mongodb://localhost:27017/visora --quiet --eval ' *)",
-      "Bash(docker exec visora-mongo mongosh mongodb://localhost:27017/visora --quiet --eval ' *)"
+      "Bash(docker exec visora-mongo mongosh mongodb://localhost:27017/visora --quiet --eval ' *)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }
