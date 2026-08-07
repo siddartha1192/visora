@@ -1,0 +1,24 @@
+{
+  "name": "visora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-enabled platform for visual content posting and scheduling.",
+  "packageManager": "pnpm@9.7.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "concurrently --kill-others-on-fail --names api,web,worker --prefix-colors cyan,magenta,yellow \"pnpm --filter @visora/api dev\" \"pnpm --filter @visora/web dev\" \"pnpm --filter @visora/api dev:worker\"",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev:api": "pnpm --filter @visora/api dev",
+    "dev:worker": "pnpm --filter @visora/api dev:worker",
+    "dev:web": "pnpm --filter @visora/web dev",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

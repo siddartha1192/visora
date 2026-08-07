@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Dark theme (default) ──────────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 96%;
+  --card: 222 44% 10%;
+  --card-foreground: 210 40% 96%;
+  --primary: 245 75% 62%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 217 33% 15%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 270 70% 65%;
+  --accent-foreground: 210 40% 98%;
+  --border: 217 33% 20%;
+  --input: 217 33% 20%;
+  --ring: 245 75% 62%;
+  --radius: 0.75rem;
+  --gradient-1: hsl(245 75% 62% / 0.12);
+  --gradient-2: hsl(270 70% 65% / 0.10);
+}
+
+/* ── Grey theme ────────────────────────────────────────────────────────── */
+:root[data-theme="grey"] {
+  --background: 220 13% 14%;
+  --foreground: 210 14% 90%;
+  --card: 220 13% 19%;
+  --card-foreground: 210 14% 90%;
+  --primary: 245 75% 62%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 12% 26%;
+  --secondary-foreground: 210 14% 90%;
+  --muted: 220 12% 22%;
+  --muted-foreground: 218 10% 58%;
+  --accent: 270 70% 65%;
+  --accent-foreground: 210 40% 98%;
+  --border: 220 12% 30%;
+  --input: 220 12% 30%;
+  --ring: 245 75% 62%;
+  --radius: 0.75rem;
+  --gradient-1: hsl(245 75% 62% / 0.07);
+  --gradient-2: hsl(270 70% 65% / 0.05);
+}
+
+/* ── Light theme ───────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 210 40% 98%;
+  --card-foreground: 222 47% 11%;
+  --primary: 245 75% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 92%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 94%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 270 70% 58%;
+  --accent-foreground: 0 0% 100%;
+  --border: 214 32% 86%;
+  --input: 214 32% 86%;
+  --ring: 245 75% 58%;
+  --radius: 0.75rem;
+  --gradient-1: hsl(245 75% 62% / 0.06);
+  --gradient-2: hsl(270 70% 65% / 0.04);
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, var(--gradient-1), transparent),
+    radial-gradient(1000px 500px at 0% 0%, var(--gradient-2), transparent),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass {
+  background: hsl(var(--card) / 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border));
+}

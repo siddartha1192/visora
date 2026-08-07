@@ -1,0 +1,36 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: visora-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: visora-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  # S3-compatible local object storage. Point the API at it with:
+  #   S3_ENDPOINT=http://localhost:4566  S3_FORCE_PATH_STYLE=true
+  #   AWS_ACCESS_KEY_ID=test  AWS_SECRET_ACCESS_KEY=test
+  localstack:
+    image: localstack/localstack:3
+    container_name: visora-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=0
+    volumes:
+      - localstack-data:/var/lib/localstack
+
+volumes:
+  mongo-data:
+  redis-data:
+  localstack-data:
