@@ -6,6 +6,7 @@ import { PLATFORMS, type Platform, type CreatePostInput } from "@visora/shared";
 import { Bot, Zap, Send, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PromptTemplatePanel } from "@/components/ui/prompt-templates";
 import { ContentPolicyModal } from "@/components/ui/content-policy-modal";
@@ -70,16 +71,12 @@ export default function AutonomousPage() {
         onDismiss={() => { setPolicyError(null); submit.reset(); }}
       />
     )}
-    <div className="mx-auto max-w-3xl space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Autonomous</h1>
-          <p className="text-muted-foreground">
-            Describe what you want — the agent decides how to get it.
-          </p>
-        </header>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        icon={<Bot className="h-5 w-5" />}
+        title="Autonomous"
+        description="Describe what you want — the agent decides how to get it."
+      />
 
       {/* Ambient indicator */}
       <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
@@ -170,72 +167,75 @@ export default function AutonomousPage() {
           )}
         </div>
 
-        {/* Platforms */}
-        <div>
-          <p className="mb-2 text-sm font-medium">
-            Platforms <span className="font-normal text-muted-foreground">(optional — overrides brief)</span>
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {PLATFORMS.map((p) => (
-              <button
-                key={p}
-                onClick={() =>
-                  setTargets((t) => t.includes(p) ? t.filter((x) => x !== p) : [...t, p])
-                }
-                className={cn(
-                  "rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-colors",
-                  targets.includes(p)
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:bg-secondary/50",
-                )}
-              >
-                {p}
-              </button>
-            ))}
+        {/* Platforms + delivery — grouped panel, both optional overrides of the brief */}
+        <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Platforms <span className="font-normal text-muted-foreground">(optional — overrides brief)</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() =>
+                    setTargets((t) => t.includes(p) ? t.filter((x) => x !== p) : [...t, p])
+                  }
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-colors",
+                    targets.includes(p)
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border text-muted-foreground hover:bg-secondary/50",
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {targets.length === 0
+                ? "No selection — agent reads platforms from your brief, defaults to Instagram."
+                : `${targets.length} selected — overrides whatever the brief says.`}
+            </p>
           </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {targets.length === 0
-              ? "No selection — agent reads platforms from your brief, defaults to Instagram."
-              : `${targets.length} selected — overrides whatever the brief says.`}
-          </p>
-        </div>
 
-        {/* Delivery */}
-        <div>
-          <p className="mb-2 text-sm font-medium">
-            Delivery <span className="font-normal text-muted-foreground">(optional — overrides brief)</span>
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant={scheduleMode === "instant" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setScheduleMode(scheduleMode === "instant" ? null : "instant")}
-            >
-              <Send className="h-4 w-4" /> Publish now
-            </Button>
-            <Button
-              variant={scheduleMode === "scheduled" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setScheduleMode(scheduleMode === "scheduled" ? null : "scheduled")}
-            >
-              <Clock className="h-4 w-4" /> Schedule
-            </Button>
-            {scheduleMode === "scheduled" && (
-              <DateTimePicker
-                value={runAt}
-                onChange={setRunAt}
-                minDate={new Date()}
-                placeholder="Pick a date & time"
-              />
-            )}
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Delivery <span className="font-normal text-muted-foreground">(optional — overrides brief)</span>
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant={scheduleMode === "instant" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setScheduleMode(scheduleMode === "instant" ? null : "instant")}
+              >
+                <Send className="h-4 w-4" /> Publish now
+              </Button>
+              <Button
+                type="button"
+                variant={scheduleMode === "scheduled" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setScheduleMode(scheduleMode === "scheduled" ? null : "scheduled")}
+              >
+                <Clock className="h-4 w-4" /> Schedule
+              </Button>
+              {scheduleMode === "scheduled" && (
+                <DateTimePicker
+                  value={runAt}
+                  onChange={setRunAt}
+                  minDate={new Date()}
+                  placeholder="Pick a date & time"
+                />
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {scheduleMode === null
+                ? "No selection — agent reads timing from your brief, defaults to publish now."
+                : scheduleMode === "instant"
+                ? "Will publish immediately after approval — overrides any time mentioned in the brief."
+                : "Will publish at the selected time — overrides any time mentioned in the brief."}
+            </p>
           </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {scheduleMode === null
-              ? "No selection — agent reads timing from your brief, defaults to publish now."
-              : scheduleMode === "instant"
-              ? "Will publish immediately after approval — overrides any time mentioned in the brief."
-              : "Will publish at the selected time — overrides any time mentioned in the brief."}
-          </p>
         </div>
 
         {/* Submit */}

@@ -6,12 +6,17 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { InlineCalendar } from "@/components/ui/inline-calendar";
 import { LogDrawer } from "@/components/ui/log-drawer";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonRow } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import {
   AlertCircle,
   CheckCircle,
   Clock,
   ImageIcon,
+  ListChecks,
   Send,
   XCircle,
   X,
@@ -22,8 +27,9 @@ import {
   ChevronDown,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type AssetSource = "user" | "dalle3" | "pexels" | "unsplash" | "scrape";
@@ -108,7 +114,17 @@ function useCountdown(target: string | undefined) {
 }
 
 export default function PostsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PostsPageInner />
+    </Suspense>
+  );
+}
+
+function PostsPageInner() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, isLoading, error } = useQuery({
     queryKey: ["posts"],
     queryFn: () => api.listPosts(1),
@@ -122,9 +138,39 @@ export default function PostsPage() {
   });
   const isAdmin = me?.role === "admin" || me?.role === "root";
 
+  const stats = data?.items.reduce(
+    (acc, p) => {
+      if (p.status === "scheduled" || (p.status === "ready" && p.schedule?.mode === "scheduled")) acc.scheduled++;
+      else if (p.status === "published") acc.published++;
+      else if (p.status === "failed") acc.failed++;
+      return acc;
+    },
+    { scheduled: 0, published: 0, failed: 0 },
+  );
+
   const [lightbox, setLightbox] = useState<{ url: string; post: PostDTO } | null>(null);
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);
   const [logPost, setLogPost] = useState<PostDTO | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  // Deep link from the Calendar: /posts?highlight=<postId> — scroll to the row
+  // (or open the review gate if it's still awaiting approval), then strip the param.
+  const highlightParam = searchParams.get("highlight");
+  useEffect(() => {
+    if (!highlightParam || !data) return;
+    const post = data.items.find((p) => p.id === highlightParam);
+    if (post) {
+      if (post.status === "pending_review") {
+        setReviewPost(post);
+      } else {
+        document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedId(post.id);
+        const timer = setTimeout(() => setHighlightedId(null), 2500);
+        return () => clearTimeout(timer);
+      }
+    }
+    router.replace("/posts", { scroll: false });
+  }, [highlightParam, data, router]);
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
 
@@ -171,14 +217,21 @@ export default function PostsPage() {
         "mx-auto max-w-4xl space-y-6 transition-all duration-200",
         logPost && "mr-[416px]",
       )}>
-        <header>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Posts</h1>
-          <p className="text-muted-foreground">
-            Every run, with live status as the agent graph progresses.
-          </p>
-        </header>
+        <PageHeader
+          icon={<ListChecks className="h-5 w-5" />}
+          title="Posts"
+          description="Every run, with live status as the agent graph progresses."
+        />
 
-        {isLoading && <p className="text-muted-foreground">Loading…</p>}
+        {data && data.items.length > 0 && stats && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard size="compact" label="Total posts" value={String(data.items.length)} icon={ListChecks} accent="bg-secondary/60 text-foreground" />
+            <StatCard size="compact" label="Scheduled" value={String(stats.scheduled)} icon={Clock} accent="bg-primary/15 text-primary" />
+            <StatCard size="compact" label="Published" value={String(stats.published)} icon={CheckCircle} accent="bg-success/15 text-success" />
+            <StatCard size="compact" label="Failed" value={String(stats.failed)} icon={XCircle} accent="bg-destructive/15 text-destructive" />
+          </div>
+        )}
+
         {error && (
           <p className="text-destructive">
             {(error as Error).message} — is the API running on :4000?
@@ -186,20 +239,25 @@ export default function PostsPage() {
         )}
 
         <div className="space-y-3">
+          {isLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+
           {data?.items.map((post) => (
             <PostRow
               key={post.id}
               post={post}
               isAdmin={isAdmin}
+              highlighted={highlightedId === post.id}
               onImageClick={(url) => setLightbox({ url, post })}
               onReview={() => setReviewPost(post)}
               onViewLogs={() => setLogPost(post)}
             />
           ))}
           {data && data.items.length === 0 && (
-            <Card className="p-8 text-center text-muted-foreground">
-              No posts yet. Head to Compose to create one.
-            </Card>
+            <EmptyState
+              icon={ImageIcon}
+              title="No posts yet"
+              description="Head to Compose to create your first one."
+            />
           )}
         </div>
       </div>
@@ -294,12 +352,14 @@ const LOGGABLE_STATUSES = new Set([
 function PostRow({
   post,
   isAdmin,
+  highlighted,
   onImageClick,
   onReview,
   onViewLogs,
 }: {
   post: PostDTO;
   isAdmin: boolean;
+  highlighted?: boolean;
   onImageClick: (url: string) => void;
   onReview: () => void;
   onViewLogs: () => void;
@@ -350,7 +410,13 @@ function PostRow({
   );
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card
+      id={`post-${post.id}`}
+      className={cn(
+        "flex flex-col gap-3 p-4 transition-shadow duration-300",
+        highlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
+    >
       <div className="flex items-center gap-4">
         {/* Thumbnail */}
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">

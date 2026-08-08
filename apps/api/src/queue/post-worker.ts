@@ -6,7 +6,7 @@ import { logger } from "../lib/logger.js";
 import { appLog } from "../lib/logging/index.js";
 import { runPostGraph, getServices } from "../orchestration/runner.js";
 import { connection, POST_QUEUE_NAME } from "./connection.js";
-import type { ProcessPostJobData } from "./post-queue.js";
+import { enqueueScheduledPublish, type ProcessPostJobData } from "./post-queue.js";
 
 /**
  * Core publish logic shared by the scheduled publish job and the retry-publish job.
@@ -241,6 +241,41 @@ async function retryPublishPost(postId: string, workspaceId: string, jobId: stri
     await PostModel.updateOne({ _id: post._id }, { $set: { status: "failed", lastError: e.message } });
     logger.error({ postId, err: e.message }, "retry publish failed");
     throw err;
+  }
+}
+
+/**
+ * MongoDB is the durable source of truth for `schedule.runAt`; the BullMQ delayed
+ * job in Redis is only the trigger. If Redis loses its queue (volume wiped, job
+ * never got enqueued, container was down when a job should have fired, etc.) a
+ * "ready" scheduled post would otherwise sit forever with nothing to publish it.
+ *
+ * Re-enqueueing here is safe to call any time: the job id is deterministic
+ * (`scheduled_publish_${postId}`) so it can't double-enqueue, and
+ * `enqueueScheduledPublish` clamps an already-past `runAt` to a 0ms delay — so
+ * anything overdue publishes immediately instead of being silently dropped.
+ */
+export async function reconcileScheduledPosts(): Promise<void> {
+  const due = await PostModel.find({
+    status: "ready",
+    "schedule.mode": "scheduled",
+    "schedule.runAt": { $ne: null },
+  });
+
+  for (const post of due) {
+    if (!post.schedule?.runAt) continue;
+    await enqueueScheduledPublish(
+      {
+        postId: post._id.toString(),
+        jobId: post.jobId?.toString() ?? post._id.toString(),
+        workspaceId: post.workspaceId.toString(),
+      },
+      post.schedule.runAt,
+    );
+  }
+
+  if (due.length > 0) {
+    logger.info({ count: due.length }, "reconciled scheduled posts against the queue");
   }
 }
 

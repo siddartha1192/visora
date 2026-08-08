@@ -27,7 +27,29 @@
       "Bash(python3 -m json.tool)",
       "Bash(pkill -f \"tsx watch src/index.ts\")",
       "Bash(mongosh mongodb://localhost:27017/visora --quiet --eval ' *)",
-      "Bash(docker exec visora-mongo mongosh mongodb://localhost:27017/visora --quiet --eval ' *)"
+      "Bash(docker exec visora-mongo mongosh mongodb://localhost:27017/visora --quiet --eval ' *)",
+      "Bash(npm run *)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(timeout 90 npm run build)",
+      "Bash(chromium-cli --help)",
+      "Read(//Users/chinmaymac/Library/Caches/ms-playwright/**)",
+      "Bash(find / -maxdepth 6 -iname \"*ms-playwright*\" -type d)",
+      "Bash(cd /Users/chinmaymac/GitHub/visora && ls /Users/chinmaymac/Library/Caches/ms-playwright/chromium-1228/chrome-mac/ 2>&1 | head)",
+      "Read(//Users/chinmaymac/Library/Caches/ms-playwright/chromium-1228/**)",
+      "Bash(ls /Users/chinmaymac/Library/Caches/ms-playwright/)",
+      "Bash(find /Users/chinmaymac/Library/Caches/ms-playwright/chromium-1228 -maxdepth 5)",
+      "Bash(node /private/tmp/claude-501/-Users-chinmaymac-GitHub-visora/e6daa942-4564-4a80-8470-a3842669c608/scratchpad/verify-calendar.mjs)",
+      "Bash(node -e \"require.resolve\\('playwright-core'\\)\")",
+      "Bash(NODE_PATH=/Users/chinmaymac/GitHub/visora/node_modules node /private/tmp/claude-501/-Users-chinmaymac-GitHub-visora/e6daa942-4564-4a80-8470-a3842669c608/scratchpad/verify-calendar.mjs)",
+      "Bash(lsof -ti:3100 -sTCP:LISTEN)",
+      "Bash(node /private/tmp/claude-501/-Users-chinmaymac-GitHub-visora/e6daa942-4564-4a80-8470-a3842669c608/scratchpad/verify-calendar-links.mjs)",
+      "Bash(npx eslint *)",
+      "Bash(timeout 180 npm run build)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4000/v1/health)",
+      "Bash(npx next *)",
+      "Bash(echo \"started with pid $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/login)",
+      "Bash(node -e \"require.resolve\\('playwright'\\)\")"
     ]
   }
 }

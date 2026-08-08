@@ -119,14 +119,15 @@ export async function approvePost(
   }
   await resumePostGraph(post, { approved: true, ...opts });
 
-  // After graph completes, if the post landed in "ready" with a future schedule,
-  // enqueue a delayed BullMQ job that fires at runAt and publishes to the platforms.
+  // After graph completes, if the post landed in "ready" with a schedule, enqueue a
+  // BullMQ job that publishes to the platforms at runAt. If runAt has already passed
+  // (e.g. approval happened late), enqueueScheduledPublish clamps the delay to 0 so
+  // it fires immediately instead of never firing at all.
   const updated = await PostModel.findById(post._id);
   if (
     updated?.status === "ready" &&
     updated.schedule?.mode === "scheduled" &&
-    updated.schedule?.runAt &&
-    updated.schedule.runAt > new Date()
+    updated.schedule?.runAt
   ) {
     await enqueueScheduledPublish(
       {

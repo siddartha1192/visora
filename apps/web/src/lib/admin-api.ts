@@ -1,4 +1,5 @@
 import type { ApiResponse, UserRole } from "@visora/shared";
+import { refreshSession, setLogoutReason } from "./api";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 
@@ -16,21 +17,38 @@ export function setAdminToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function doFetch(path: string, init: RequestInit, token: string | null) {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  const token = getAdminToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(`${BASE}${path}`, { ...init, headers });
+}
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // See the matching comment in lib/api.ts's request() — distinguishes a real
+  // expiry from a visitor who never had admin credentials in the first place.
+  const hadCredentials = getAdminToken() !== null;
+
+  let res = await doFetch(path, init, getAdminToken());
+
+  // Access token expired — silently refresh and retry once before logging out,
+  // same as the regular user client.
+  if (res.status === 401) {
+    const newToken = await refreshSession();
+    if (newToken) {
+      setAdminToken(newToken);
+      res = await doFetch(path, init, newToken);
+    }
+  }
 
   // Admin token expired or revoked — clear all auth and redirect to admin login.
   if (res.status === 401) {
     setAdminToken(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("visora_token");
+      if (hadCredentials) setLogoutReason("expired");
       window.location.replace("/admin/login");
     }
   }
@@ -158,7 +176,7 @@ export interface DbDocsPage {
 export const adminApi = {
   // Auth (re-uses main auth endpoint, stores token separately)
   login: (email: string, password: string) =>
-    request<{ tokens: { accessToken: string } }>("/auth/login", {
+    request<{ tokens: { accessToken: string; refreshToken: string } }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),

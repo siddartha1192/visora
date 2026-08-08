@@ -16,6 +16,20 @@ const STATUS_STYLES: Record<string, string> = {
   rejected:       "bg-destructive/10 text-destructive/90 ring-1 ring-inset ring-destructive/20",
 };
 
+export const STATUS_DOT_COLORS: Record<string, string> = {
+  draft:          "bg-muted-foreground",
+  queued:         "bg-warning",
+  processing:     "bg-primary",
+  pending_review: "bg-warning",
+  ready:          "bg-accent",
+  scheduled:      "bg-primary",
+  publishing:     "bg-primary",
+  published:      "bg-success",
+  failed:         "bg-destructive",
+  cancelled:      "bg-muted-foreground/70",
+  rejected:       "bg-destructive/90",
+};
+
 export function StatusBadge({ status }: { status: PostStatus }) {
   return (
     <span
