@@ -39,6 +39,13 @@ export function toPostDTO(post: PostDoc): PostDTO {
     },
     jobId: post.jobId?.toString(),
     lastError: post.lastError ?? undefined,
+    cancelledAt: post.cancelledAt?.toISOString(),
+    cancelledBy: post.cancelledBy?.userId
+      ? {
+          userId: post.cancelledBy.userId.toString(),
+          role: post.cancelledBy.role ?? "user",
+        }
+      : undefined,
     createdAt: (post as unknown as { createdAt: Date }).createdAt.toISOString(),
     updatedAt: (post as unknown as { updatedAt: Date }).updatedAt.toISOString(),
   };

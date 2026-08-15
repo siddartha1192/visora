@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Wand2,
   CalendarClock,
@@ -11,6 +11,7 @@ import {
   Settings,
   Bot,
   Users,
+  KeyRound,
   Cpu,
   GitBranch,
   BarChart3,
@@ -34,7 +35,17 @@ const USER_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin/analytics", label: "Analytics",   icon: BarChart3  },
   { href: "/admin/users",     label: "Users",       icon: Users      },
+  { href: "/admin/api-keys",  label: "API Keys",    icon: KeyRound   },
   { href: "/admin/posts",     label: "All Posts",   icon: FileText   },
+];
+
+/**
+ * Platform-operator screens: shared LLM credentials, the global node→model
+ * routing singleton, and the raw document browser. The server gates these with
+ * `requireRoot`; hiding them here keeps a non-root admin from seeing three nav
+ * items that would all 403.
+ */
+const PLATFORM_NAV: NavItem[] = [
   { href: "/admin/llms",      label: "LLM Configs", icon: Cpu        },
   { href: "/admin/nodes",     label: "Node Config", icon: GitBranch  },
   { href: "/admin/database",  label: "Database",    icon: Database   },
@@ -45,10 +56,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // Doubles as the admin-access guard and the source of the caller's role —
+  // shares the ["admin-me"] cache key with the Users page rather than refetching.
+  const { data: me, isError } = useQuery({
+    queryKey: ["admin-me"],
+    queryFn: adminApi.me,
+    enabled: pathname !== "/admin/login",
+    retry: false,
+  });
+
   useEffect(() => {
-    if (pathname === "/admin/login") return;
-    adminApi.me().catch(() => router.replace("/admin/login"));
-  }, [pathname, router]);
+    if (isError) router.replace("/admin/login");
+  }, [isError, router]);
 
   function logout() {
     clearAuth();
@@ -69,7 +88,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar userNav={USER_NAV} adminNav={ADMIN_NAV} showAdmin />
+      <Sidebar
+        userNav={USER_NAV}
+        adminNav={me?.platformRole === "root" ? [...ADMIN_NAV, ...PLATFORM_NAV] : ADMIN_NAV}
+        showAdmin
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onLogout={logout} />

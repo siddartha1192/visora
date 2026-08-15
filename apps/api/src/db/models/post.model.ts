@@ -4,6 +4,7 @@ import {
   POST_STATUSES,
   SCHEDULE_MODES,
   TARGET_STATUSES,
+  USER_ROLES,
   WORKFLOWS,
 } from "@visora/shared";
 
@@ -62,6 +63,14 @@ const postSchema = new Schema(
     },
     jobId: { type: Schema.Types.ObjectId, ref: "Job" },
     lastError: { type: String },
+    // Cancellation audit. An admin or root user can cancel a post in a
+    // workspace they aren't a member of, so "who stopped this" is not
+    // recoverable from workspaceId/authorId alone.
+    cancelledAt: { type: Date },
+    cancelledBy: {
+      userId: { type: Schema.Types.ObjectId, ref: "User" },
+      role: { type: String, enum: USER_ROLES },
+    },
   },
   { timestamps: true },
 );

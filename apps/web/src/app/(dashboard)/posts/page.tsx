@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { AssetDTO, PostDTO, WorkflowType } from "@visora/shared";
+import { isCancellable } from "@visora/shared";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { InlineCalendar } from "@/components/ui/inline-calendar";
@@ -10,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonRow } from "@/components/ui/skeleton";
+import { ViewSwitcher, useStoredView, type ViewOption } from "@/components/ui/view-switcher";
 import { api } from "@/lib/api";
 import {
   AlertCircle,
@@ -26,6 +28,10 @@ import {
   RefreshCw,
   ChevronDown,
   Trash2,
+  Ban,
+  LayoutList,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -113,6 +119,27 @@ function useCountdown(target: string | undefined) {
   return state;
 }
 
+/* ── View modes ────────────────────────────────────────────────────────────
+ * Three densities over the same data:
+ *   list    — full rows with every inline banner (review gate, countdown,
+ *             failure reason, retry). The triage view; unchanged from before.
+ *   grid    — image-forward tiles. This is a visual-content tool, so scanning
+ *             the imagery itself is a first-class way to find a post.
+ *   compact — one line per post. For scanning many runs at once.
+ *
+ * Grid and compact deliberately carry only the primary affordance for a post's
+ * state plus the action icons; the full detail stays in list view rather than
+ * being crammed into a tile.
+ */
+const POST_VIEW_OPTIONS = [
+  { id: "list",    label: "List",    icon: LayoutList },
+  { id: "grid",    label: "Grid",    icon: LayoutGrid },
+  { id: "compact", label: "Compact", icon: List },
+] as const satisfies readonly ViewOption<"list" | "grid" | "compact">[];
+
+type PostView = (typeof POST_VIEW_OPTIONS)[number]["id"];
+const POST_VIEW_IDS = POST_VIEW_OPTIONS.map((o) => o.id) as readonly PostView[];
+
 export default function PostsPage() {
   return (
     <Suspense fallback={null}>
@@ -136,7 +163,10 @@ function PostsPageInner() {
     queryFn: () => api.getMe(),
     staleTime: 60_000,
   });
-  const isAdmin = me?.role === "admin" || me?.role === "root";
+  const isAdmin =
+    Boolean(me?.platformRole) ||
+    me?.orgRole === "owner" ||
+    (me?.workspaces ?? []).some((w) => w.myRole === "admin");
 
   const stats = data?.items.reduce(
     (acc, p) => {
@@ -152,6 +182,11 @@ function PostsPageInner() {
   const [reviewPost, setReviewPost] = useState<PostDTO | null>(null);
   const [logPost, setLogPost] = useState<PostDTO | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [view, setView] = useStoredView<PostView>(
+    "visora-posts-view",
+    POST_VIEW_IDS,
+    "list",
+  );
 
   // Deep link from the Calendar: /posts?highlight=<postId> — scroll to the row
   // (or open the review gate if it's still awaiting approval), then strip the param.
@@ -212,16 +247,23 @@ function PostsPageInner() {
 
   return (
     <>
-      {/* Posts list — shifts left when log panel is open */}
+      {/* Posts list — shifts left when log panel is open. Grid needs more room
+          than the reading-width used by the row layouts. */}
       <div className={cn(
-        "mx-auto max-w-4xl space-y-6 transition-all duration-200",
+        "mx-auto space-y-6 transition-all duration-200",
+        view === "grid" ? "max-w-6xl" : "max-w-4xl",
         logPost && "mr-[416px]",
       )}>
-        <PageHeader
-          icon={<ListChecks className="h-5 w-5" />}
-          title="Posts"
-          description="Every run, with live status as the agent graph progresses."
-        />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <PageHeader
+            icon={<ListChecks className="h-5 w-5" />}
+            title="Posts"
+            description="Every run, with live status as the agent graph progresses."
+          />
+          {data && data.items.length > 0 && (
+            <ViewSwitcher options={POST_VIEW_OPTIONS} view={view} onChange={setView} />
+          )}
+        </div>
 
         {data && data.items.length > 0 && stats && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -238,28 +280,41 @@ function PostsPageInner() {
           </p>
         )}
 
-        <div className="space-y-3">
+        <div
+          className={cn(
+            view === "grid"
+              ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+              : view === "compact"
+              ? "space-y-1.5"
+              : "space-y-3",
+          )}
+        >
           {isLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
 
-          {data?.items.map((post) => (
-            <PostRow
-              key={post.id}
-              post={post}
-              isAdmin={isAdmin}
-              highlighted={highlightedId === post.id}
-              onImageClick={(url) => setLightbox({ url, post })}
-              onReview={() => setReviewPost(post)}
-              onViewLogs={() => setLogPost(post)}
-            />
-          ))}
-          {data && data.items.length === 0 && (
-            <EmptyState
-              icon={ImageIcon}
-              title="No posts yet"
-              description="Head to Compose to create your first one."
-            />
-          )}
+          {data?.items.map((post) => {
+            const shared = {
+              post,
+              isAdmin,
+              highlighted: highlightedId === post.id,
+              onImageClick: (url: string) => setLightbox({ url, post }),
+              onReview: () => setReviewPost(post),
+              onViewLogs: () => setLogPost(post),
+            };
+            // Keyed by view so switching layouts remounts cleanly rather than
+            // trying to reconcile two very different trees.
+            if (view === "grid") return <PostTile key={`grid-${post.id}`} {...shared} />;
+            if (view === "compact") return <PostCompactRow key={`compact-${post.id}`} {...shared} />;
+            return <PostRow key={`list-${post.id}`} {...shared} />;
+          })}
         </div>
+
+        {data && data.items.length === 0 && (
+          <EmptyState
+            icon={ImageIcon}
+            title="No posts yet"
+            description="Head to Compose to create your first one."
+          />
+        )}
       </div>
 
       {/* Log panel — fixed right panel, no backdrop */}
@@ -349,6 +404,207 @@ const LOGGABLE_STATUSES = new Set([
   "scheduled", "publishing", "published", "failed", "rejected",
 ]);
 
+/**
+ * Everything a post row/tile can *do*, in one place. All three views share this
+ * so cancel, delete and retry behave identically regardless of layout — and so
+ * a rule change (e.g. what's cancellable) lands in every view at once.
+ *
+ * Only one confirmation can be open at a time, which is why it's a single
+ * discriminated value rather than a boolean per action.
+ */
+function usePostActions(post: PostDTO) {
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState<null | "cancel" | "delete">(null);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["posts"] });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelPost(post.id),
+    onSuccess: () => { invalidate(); setConfirm(null); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.adminDeletePost(post.id),
+    onSuccess: () => { invalidate(); setConfirm(null); },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: (mode: "from_failed" | "full") => api.retryPost(post.id, mode),
+    onSuccess: invalidate,
+  });
+
+  const { data: asset } = useQuery<AssetDTO>({
+    queryKey: ["asset", post.primaryAssetId],
+    queryFn: () => api.getAsset(post.primaryAssetId!),
+    enabled: !!post.primaryAssetId,
+  });
+
+  const isScheduledReady =
+    post.status === "ready" &&
+    post.schedule?.mode === "scheduled" &&
+    !!post.schedule?.runAt;
+
+  const countdown = useCountdown(
+    isScheduledReady ? post.schedule?.runAt : undefined,
+  );
+
+  return {
+    asset,
+    confirm,
+    setConfirm,
+    cancelMutation,
+    deleteMutation,
+    retryMutation,
+    // Mirrors the API's own rule, so a view can never offer a cancel the
+    // server would refuse.
+    cancellable: isCancellable(post.status),
+    isScheduledReady,
+    countdown,
+    actionError:
+      (cancelMutation.error as Error | null)?.message ??
+      (deleteMutation.error as Error | null)?.message ??
+      null,
+  };
+}
+
+type PostActions = ReturnType<typeof usePostActions>;
+
+/** Inline confirmation strip, shared by every view. */
+function ConfirmBar({
+  kind,
+  post,
+  pending,
+  onDismiss,
+  onConfirm,
+}: {
+  kind: "cancel" | "delete";
+  post: PostDTO;
+  pending: boolean;
+  onDismiss: () => void;
+  onConfirm: () => void;
+}) {
+  const destructive = kind === "delete";
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2",
+        destructive
+          ? "border-destructive/30 bg-destructive/10"
+          : "border-warning/30 bg-warning/10",
+      )}
+    >
+      <p className={cn("text-xs", destructive ? "text-destructive" : "text-warning")}>
+        {destructive
+          ? "Permanently delete this post record? This cannot be undone."
+          : post.status === "ready" && post.schedule?.mode === "scheduled"
+          ? "Stop this post from publishing at its scheduled time? It stays in your list, marked cancelled."
+          : "Cancel this post? It stops before publishing and stays in your list, marked cancelled."}
+      </p>
+      <div className="flex shrink-0 gap-2">
+        <button
+          onClick={onDismiss}
+          disabled={pending}
+          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+        >
+          {destructive ? "Cancel" : "Keep it"}
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={pending}
+          className={cn(
+            "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+            destructive
+              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              : "bg-warning text-warning-foreground hover:bg-warning/90",
+          )}
+        >
+          {destructive ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
+          {pending
+            ? destructive ? "Deleting…" : "Cancelling…"
+            : destructive ? "Yes, delete" : "Yes, cancel"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Cancel / delete / logs as icon buttons — used by grid and compact views. */
+function PostActionIcons({
+  actions,
+  isAdmin,
+  loggable,
+  onViewLogs,
+}: {
+  actions: PostActions;
+  isAdmin: boolean;
+  loggable: boolean;
+  onViewLogs: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {loggable && (
+        <button
+          onClick={onViewLogs}
+          title="View execution logs"
+          className="rounded p-1.5 text-muted-foreground/40 transition-colors hover:bg-secondary hover:text-muted-foreground"
+        >
+          <ScrollText className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {actions.cancellable && (
+        <button
+          onClick={() => actions.setConfirm("cancel")}
+          title="Cancel this post before it publishes"
+          className="rounded p-1.5 text-muted-foreground/40 transition-colors hover:bg-warning/10 hover:text-warning"
+        >
+          <Ban className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {isAdmin && (
+        <button
+          onClick={() => actions.setConfirm("delete")}
+          title="Permanently delete this post (admin)"
+          className="rounded p-1.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One-line summary of what a post is waiting on — grid/compact only. */
+function StatusHint({ post, actions }: { post: PostDTO; actions: PostActions }) {
+  if (post.status === "pending_review") {
+    return <span className="text-warning">Awaiting review</span>;
+  }
+  if (actions.isScheduledReady) {
+    return actions.countdown.overdue ? (
+      <span className="text-success">Publishing…</span>
+    ) : (
+      <span className="text-primary">Publishes {actions.countdown.label}</span>
+    );
+  }
+  if (post.status === "cancelled") {
+    return <span className="text-muted-foreground">Cancelled — will not publish</span>;
+  }
+  if (post.status === "failed" && post.lastError) {
+    return <span className="truncate text-destructive">{post.lastError}</span>;
+  }
+  return null;
+}
+
+function postSummary(post: PostDTO): string {
+  return (
+    post.input.prompt ??
+    post.input.instructions ??
+    post.input.sourceUrl ??
+    post.caption.text ??
+    "—"
+  );
+}
+
 function PostRow({
   post,
   isAdmin,
@@ -364,29 +620,24 @@ function PostRow({
   onReview: () => void;
   onViewLogs: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const actions = usePostActions(post);
+  const {
+    asset,
+    confirm,
+    setConfirm,
+    cancelMutation,
+    deleteMutation,
+    retryMutation,
+    cancellable,
+    isScheduledReady,
+  } = actions;
+  const { label: countdownLabel, overdue } = actions.countdown;
+
   const [retryOpen, setRetryOpen] = useState(false);
   const retryRef = useRef<HTMLDivElement>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const deleteMutation = useMutation({
-    mutationFn: () => api.adminDeletePost(post.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
-  });
-
-  const { data: asset } = useQuery<AssetDTO>({
-    queryKey: ["asset", post.primaryAssetId],
-    queryFn: () => api.getAsset(post.primaryAssetId!),
-    enabled: !!post.primaryAssetId,
-  });
-
-  const retryMutation = useMutation({
-    mutationFn: (mode: "from_failed" | "full") => api.retryPost(post.id, mode),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      setRetryOpen(false);
-    },
-  });
+  useEffect(() => {
+    if (!retryMutation.isPending) setRetryOpen(false);
+  }, [retryMutation.isPending]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -399,15 +650,6 @@ function PostRow({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [retryOpen]);
-
-  const isScheduledReady =
-    post.status === "ready" &&
-    post.schedule?.mode === "scheduled" &&
-    !!post.schedule?.runAt;
-
-  const { label: countdownLabel, overdue } = useCountdown(
-    isScheduledReady ? post.schedule?.runAt : undefined,
-  );
 
   return (
     <Card
@@ -477,43 +719,75 @@ function PostRow({
           <span className="text-xs text-muted-foreground/50">
             {new Date(post.createdAt).toLocaleString()}
           </span>
-          {isAdmin && !confirmDelete && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title="Delete post (admin)"
-            >
-              <Trash2 className="h-3 w-3" />
-              Delete
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {/* Anyone can stop their own post; only admin/root can destroy it. */}
+            {cancellable && !confirm && (
+              <button
+                onClick={() => setConfirm("cancel")}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-warning/10 hover:text-warning"
+                title="Cancel this post before it publishes"
+              >
+                <Ban className="h-3 w-3" />
+                Cancel
+              </button>
+            )}
+            {isAdmin && !confirm && (
+              <button
+                onClick={() => setConfirm("delete")}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                title="Delete post (admin)"
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Admin delete confirmation */}
-      {confirmDelete && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
-          <p className="text-xs text-destructive">
-            Permanently delete this post record? This cannot be undone.
+      {/* Cancel confirmation */}
+      {confirm === "cancel" && (
+        <ConfirmBar
+          kind="cancel"
+          post={post}
+          pending={cancelMutation.isPending}
+          onDismiss={() => setConfirm(null)}
+          onConfirm={() => cancelMutation.mutate()}
+        />
+      )}
+      {actions.actionError && (
+        <p className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+          {actions.actionError}
+        </p>
+      )}
+
+      {/* Cancelled — who stopped it, and when */}
+      {post.status === "cancelled" && (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2">
+          <Ban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            Cancelled
+            {post.cancelledBy && post.cancelledBy.role !== "user"
+              ? ` by ${post.cancelledBy.role === "root" ? "a root user" : "an admin"}`
+              : ""}
+            {post.cancelledAt
+              ? ` on ${new Date(post.cancelledAt).toLocaleString()}`
+              : ""}
+            {" — this post will not be published."}
           </p>
-          <div className="flex shrink-0 gap-2">
-            <button
-              onClick={() => setConfirmDelete(false)}
-              disabled={deleteMutation.isPending}
-              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              className="flex items-center gap-1 rounded-md bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-            >
-              <Trash2 className="h-3 w-3" />
-              {deleteMutation.isPending ? "Deleting…" : "Yes, delete"}
-            </button>
-          </div>
         </div>
+      )}
+
+      {/* Admin delete confirmation */}
+      {confirm === "delete" && (
+        <ConfirmBar
+          kind="delete"
+          post={post}
+          pending={deleteMutation.isPending}
+          onDismiss={() => setConfirm(null)}
+          onConfirm={() => deleteMutation.mutate()}
+        />
       )}
 
       {/* Pending review */}
@@ -633,6 +907,237 @@ function PostRow({
         </div>
       )}
     </Card>
+  );
+}
+
+/* ── Grid view ─────────────────────────────────────────────────────────────
+ * Image-forward tile. The thumbnail is the subject, so it gets a full 4:3
+ * frame; text and actions sit beneath it. Failure/review state collapses to a
+ * single hint line — the full banners live in list view.
+ */
+function PostTile({
+  post,
+  isAdmin,
+  highlighted,
+  onImageClick,
+  onReview,
+  onViewLogs,
+}: {
+  post: PostDTO;
+  isAdmin: boolean;
+  highlighted?: boolean;
+  onImageClick: (url: string) => void;
+  onReview: () => void;
+  onViewLogs: () => void;
+}) {
+  const actions = usePostActions(post);
+  const { asset, confirm, setConfirm, cancelMutation, deleteMutation } = actions;
+
+  return (
+    <Card
+      id={`post-${post.id}`}
+      className={cn(
+        "group flex flex-col overflow-hidden transition-shadow duration-300",
+        highlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
+    >
+      {/* Thumbnail */}
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden border-b border-border bg-secondary">
+        {asset?.url ? (
+          <button
+            className="h-full w-full cursor-zoom-in"
+            onClick={() => onImageClick(asset.url)}
+            title="Click to view full size"
+          >
+            <img
+              src={asset.url}
+              alt={post.input.prompt ?? "generated image"}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            />
+          </button>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+          </div>
+        )}
+        {/* StatusBadge is built for the app's flat dark surfaces — its fills are
+            translucent tints, which wash out completely over a bright photo.
+            This scrim gives it a consistent dark backing on any image. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+        <div className="absolute left-2 top-2">
+          <StatusBadge status={post.status} />
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] capitalize text-secondary-foreground">
+            {post.workflow.replace(/_/g, " ")}
+          </span>
+          <SourceBadges asset={asset} workflow={post.workflow} />
+        </div>
+
+        <p className="line-clamp-2 text-sm text-foreground/90">{postSummary(post)}</p>
+
+        <p className="text-xs">
+          <StatusHint post={post} actions={actions} />
+        </p>
+
+        {/* Pushes the footer to the bottom so tiles in a row align. */}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <div className="flex min-w-0 flex-wrap gap-1">
+            {post.targets.map((t) => (
+              <span
+                key={t.platform}
+                className="rounded-full border border-border px-1.5 py-0.5 text-[10px] capitalize text-muted-foreground"
+              >
+                {t.platform}
+              </span>
+            ))}
+          </div>
+          <PostActionIcons
+            actions={actions}
+            isAdmin={isAdmin}
+            loggable={LOGGABLE_STATUSES.has(post.status)}
+            onViewLogs={onViewLogs}
+          />
+        </div>
+
+        {post.status === "pending_review" && (
+          <button
+            onClick={onReview}
+            className="rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-warning-foreground transition-colors hover:bg-warning/90"
+          >
+            Review &amp; Approve
+          </button>
+        )}
+
+        {confirm && (
+          <ConfirmBar
+            kind={confirm}
+            post={post}
+            pending={cancelMutation.isPending || deleteMutation.isPending}
+            onDismiss={() => setConfirm(null)}
+            onConfirm={() =>
+              confirm === "delete" ? deleteMutation.mutate() : cancelMutation.mutate()
+            }
+          />
+        )}
+        {actions.actionError && (
+          <p className="flex items-start gap-1.5 text-xs text-destructive">
+            <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+            {actions.actionError}
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ── Compact view ──────────────────────────────────────────────────────────
+ * One line per post for scanning many runs. Same actions, no banners.
+ */
+function PostCompactRow({
+  post,
+  isAdmin,
+  highlighted,
+  onImageClick,
+  onReview,
+  onViewLogs,
+}: {
+  post: PostDTO;
+  isAdmin: boolean;
+  highlighted?: boolean;
+  onImageClick: (url: string) => void;
+  onReview: () => void;
+  onViewLogs: () => void;
+}) {
+  const actions = usePostActions(post);
+  const { asset, confirm, setConfirm, cancelMutation, deleteMutation } = actions;
+
+  return (
+    <div
+      id={`post-${post.id}`}
+      className={cn(
+        "rounded-lg border border-border bg-card transition-shadow duration-300",
+        highlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
+    >
+      <div className="flex items-center gap-3 px-3 py-2">
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+          {asset?.url ? (
+            <button
+              className="h-full w-full cursor-zoom-in"
+              onClick={() => onImageClick(asset.url)}
+              title="Click to view full size"
+            >
+              <img
+                src={asset.url}
+                alt={post.input.prompt ?? "generated image"}
+                className="h-full w-full object-cover"
+              />
+            </button>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-foreground/90">{postSummary(post)}</p>
+          <p className="truncate text-xs">
+            <StatusHint post={post} actions={actions} />
+          </p>
+        </div>
+
+        <div className="hidden shrink-0 md:block">
+          <StatusBadge status={post.status} />
+        </div>
+
+        <span className="hidden shrink-0 text-xs text-muted-foreground/50 lg:block">
+          {new Date(post.createdAt).toLocaleDateString(undefined, {
+            month: "short", day: "numeric",
+          })}
+        </span>
+
+        {post.status === "pending_review" && (
+          <button
+            onClick={onReview}
+            className="shrink-0 rounded-md bg-warning px-2.5 py-1 text-xs font-semibold text-warning-foreground transition-colors hover:bg-warning/90"
+          >
+            Review
+          </button>
+        )}
+
+        <PostActionIcons
+          actions={actions}
+          isAdmin={isAdmin}
+          loggable={LOGGABLE_STATUSES.has(post.status)}
+          onViewLogs={onViewLogs}
+        />
+      </div>
+
+      {confirm && (
+        <div className="px-3 pb-2">
+          <ConfirmBar
+            kind={confirm}
+            post={post}
+            pending={cancelMutation.isPending || deleteMutation.isPending}
+            onDismiss={() => setConfirm(null)}
+            onConfirm={() =>
+              confirm === "delete" ? deleteMutation.mutate() : cancelMutation.mutate()
+            }
+          />
+        </div>
+      )}
+      {actions.actionError && (
+        <p className="flex items-start gap-1.5 px-3 pb-2 text-xs text-destructive">
+          <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+          {actions.actionError}
+        </p>
+      )}
+    </div>
   );
 }
 

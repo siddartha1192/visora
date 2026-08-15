@@ -1,12 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { assertMembership, authenticate } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
+import { requireOrgMember, requireOrgOwner, requirePlatform } from "../middleware/admin.js";
 import * as auth from "../controllers/auth.controller.js";
 import * as posts from "../controllers/post.controller.js";
 import * as assets from "../controllers/asset.controller.js";
 import * as logs from "../controllers/log.controller.js";
 import * as admin from "../controllers/admin.controller.js";
 import * as prompts from "../controllers/prompt.controller.js";
+import * as workspace from "../controllers/workspace.controller.js";
+import * as platform from "../controllers/platform.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -36,22 +38,11 @@ export async function registerRoutes(app: FastifyInstance) {
   // ── Public auth routes ────────────────────────────────────────────────────
   app.register(
     async (r) => {
-      r.post("/register", {
-        schema: {
-          tags: ["auth"],
-          summary: "Register a new account",
-          description: "Creates a user + default workspace. Returns access and refresh tokens.",
-          body: {
-            type: "object",
-            required: ["name", "email", "password"],
-            properties: {
-              name: { type: "string", minLength: 1, maxLength: 100 },
-              email: { type: "string", format: "email" },
-              password: { type: "string", minLength: 8 },
-            },
-          },
-        },
-      }, auth.register);
+      // NOTE: POST /register was removed. It was the only thing that created a
+      // workspace and it handed one to any anonymous caller, which is
+      // incompatible with tenants being provisioned off a subscription.
+      // New customers  → POST /v1/platform/tenants (platform staff)
+      // New colleagues → POST /v1/admin/users      (their own org's admins)
 
       r.post("/login", {
         schema: {
@@ -100,6 +91,105 @@ export async function registerRoutes(app: FastifyInstance) {
           security: bearer,
         },
       }, auth.me);
+
+      // API keys — self-service, machine-to-machine credentials for the
+      // caller's own workspace. Any logged-in user may mint/list/revoke
+      // their own keys, same as how OpenAI/Stripe/GitHub let any account
+      // holder generate a key for themselves — no admin involved.
+      r.post("/api-keys", {
+        schema: {
+          tags: ["auth"],
+          summary: "Create an API key for your workspace",
+          description: "Mints a new `x-api-key` credential for the caller's own workspace. The raw secret is returned exactly once and cannot be recovered afterwards — copy it immediately.",
+          security: bearer,
+          body: {
+            type: "object",
+            required: ["label", "expiresInDays"],
+            properties: {
+              label: { type: "string", minLength: 1, maxLength: 120 },
+              expiresInDays: {
+                type: ["number", "null"],
+                enum: [30, 90, 365, null],
+                description: "Preset lifetime in days, or null for no expiry",
+              },
+            },
+          },
+        },
+      }, workspace.createApiKey);
+
+      r.get("/api-keys", {
+        schema: { tags: ["auth"], summary: "List your workspace's API keys", security: bearer },
+      }, workspace.listApiKeys);
+
+      r.delete("/api-keys/:keyId", {
+        schema: {
+          tags: ["auth"], summary: "Revoke one of your workspace's API keys", security: bearer,
+          params: {
+            type: "object",
+            required: ["keyId"],
+            properties: { keyId: { type: "string" } },
+          },
+        },
+      }, workspace.revokeApiKey);
+
+      // ── Workspaces (brands/products inside the caller's organization) ──────
+      r.get("/workspaces", {
+        schema: {
+          tags: ["workspaces"],
+          summary: "List workspaces you can reach",
+          description: "The tenant's owner sees every workspace in their organization; everyone else sees only the ones they hold a membership on.",
+          security: bearer,
+        },
+      }, workspace.listWorkspaces);
+
+      r.post("/workspaces", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["workspaces"],
+          summary: "Create a workspace (organization owner only)",
+          description: "Adds a brand/product workspace to your organization, with its own social accounts and API keys.",
+          security: bearer,
+          body: {
+            type: "object", required: ["name"],
+            properties: { name: { type: "string", minLength: 1, maxLength: 120 } },
+          },
+        },
+      }, workspace.createWorkspace);
+
+      r.patch("/workspaces/:id", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["workspaces"], summary: "Rename a workspace (organization owner only)",
+          security: bearer, params: objectIdParam,
+          body: {
+            type: "object", required: ["name"],
+            properties: { name: { type: "string", minLength: 1, maxLength: 120 } },
+          },
+        },
+      }, workspace.renameWorkspace);
+
+      r.delete("/workspaces/:id", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["workspaces"],
+          summary: "Archive a workspace (organization owner only)",
+          description: "Soft-archive — posts, assets and logs reference the workspace and are preserved. An organization must keep at least one active workspace.",
+          security: bearer, params: objectIdParam,
+        },
+      }, workspace.archiveWorkspace);
+
+      r.post("/workspaces/switch", {
+        schema: {
+          tags: ["workspaces"],
+          summary: "Switch the active workspace",
+          description: "Returns a new access token bound to the target workspace. The same access rule is re-checked here, so switching can never widen what you can reach.",
+          security: bearer,
+          body: {
+            type: "object", required: ["workspaceId"],
+            properties: { workspaceId: { type: "string" } },
+          },
+        },
+      }, workspace.switchWorkspace);
 
       // Posts
       r.post("/posts", {
@@ -243,7 +333,7 @@ If the post has a future \`schedule.runAt\`, a delayed BullMQ job is created tha
         schema: {
           tags: ["posts"],
           summary: "Cancel a post",
-          description: "Soft-cancels a post. No-ops if the post is already published.",
+          description: "Stops a post in the caller's workspace before it publishes and marks it `cancelled`, dropping its pending scheduled-publish job.\n\nCancellable from `draft`, `queued`, `processing`, `pending_review`, `ready`, and `scheduled`. Returns **400** with an explanatory message once the post is `publishing` (platform calls already sent), `published`, or otherwise terminal.",
           security: bearer,
           params: objectIdParam,
         },
@@ -362,7 +452,7 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
   app.register(
     async (r) => {
       r.addHook("preHandler", authenticate);
-      r.addHook("preHandler", requireAdmin);
+      r.addHook("preHandler", requireOrgMember);
 
       r.get("/me", {
         schema: { tags: ["admin"], summary: "Admin identity", security: bearer },
@@ -383,19 +473,29 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       }, admin.getAnalytics);
 
       r.get("/users", {
-        schema: { tags: ["admin"], summary: "List all users", security: bearer },
+        schema: {
+          tags: ["admin"],
+          summary: "List users you can manage",
+          description: "The tenant's owner sees every user in their organization; a workspace admin sees only users on workspaces they administer.",
+          security: bearer,
+        },
       }, admin.listUsers);
 
       r.post("/users", {
         schema: {
-          tags: ["admin"], summary: "Create a user", security: bearer,
+          tags: ["admin"],
+          summary: "Provision a user into a workspace",
+          description: "Creates a user in the target workspace's organization and grants them a membership on it. You must administer the target workspace.",
+          security: bearer,
           body: {
-            type: "object", required: ["name", "email", "password"],
+            type: "object", required: ["name", "email", "password", "workspaceId"],
             properties: {
               name: { type: "string" }, email: { type: "string" },
               password: { type: "string", minLength: 8 },
-              // "root" is intentionally not a valid value — only grantable via ROOT_EMAILS.
-              role: { type: "string", enum: ["user", "admin"] },
+              workspaceId: { type: "string", description: "Workspace the new user joins" },
+              // Org-level roles are not grantable here: org ownership is a
+              // deliberate transfer, and platform access only via the CLI.
+              workspaceRole: { type: "string", enum: ["admin", "editor", "viewer"], default: "editor" },
             },
           },
         },
@@ -408,7 +508,7 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
             type: "object",
             properties: {
               status: { type: "string", enum: ["active", "suspended"] },
-              role: { type: "string", enum: ["user", "admin"] },
+              workspaceRole: { type: "string", enum: ["admin", "editor", "viewer"] },
             },
           },
         },
@@ -433,17 +533,41 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
         },
       }, admin.listAllPosts);
 
+      r.post("/posts/:id/cancel", {
+        schema: {
+          tags: ["admin"],
+          summary: "Cancel any post, in any workspace",
+          description: "Stops a post before it publishes and marks it `cancelled`, dropping its pending scheduled-publish job. Unlike `POST /v1/posts/:id/cancel` this is not workspace-scoped. Returns 400 if the post is already publishing, published, or otherwise terminal.",
+          security: bearer,
+          params: objectIdParam,
+        },
+      }, admin.cancelPostAsAdmin);
+
       r.delete("/posts/:id", {
-        schema: { tags: ["admin"], summary: "Hard-delete a post record", security: bearer, params: objectIdParam },
+        schema: {
+          tags: ["admin"],
+          summary: "Hard-delete a post record",
+          description: "Admin/root only. Permanently removes the post document and drops any pending scheduled-publish job. Prefer cancel for a post that simply shouldn't go out — delete is irreversible and loses the audit trail.",
+          security: bearer,
+          params: objectIdParam,
+        },
       }, admin.deletePost);
 
+      // ── Platform-only from here ────────────────────────────────────────────
+      // LLM configs, node assignments and the database browser are shared
+      // infrastructure owned by the SaaS operator, not by any customer: one
+      // LlmConfig row holds a provider credential used by every tenant's
+      // pipeline, and NodeConfig is a singleton routing every tenant's models.
+      // `requirePlatform` runs after `requireOrgMember`, which resolves identity.
       r.get("/llm-configs", {
-        schema: { tags: ["admin"], summary: "List LLM configs", security: bearer },
+        preHandler: requirePlatform,
+        schema: { tags: ["admin"], summary: "List LLM configs (platform-only)", security: bearer },
       }, admin.listLlmConfigs);
 
       r.post("/llm-configs", {
+        preHandler: requirePlatform,
         schema: {
-          tags: ["admin"], summary: "Add LLM config", security: bearer,
+          tags: ["admin"], summary: "Add LLM config (platform-only)", security: bearer,
           body: {
             type: "object", required: ["label", "provider", "apiKey"],
             properties: {
@@ -458,8 +582,9 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       }, admin.createLlmConfig);
 
       r.patch("/llm-configs/:id", {
+        preHandler: requirePlatform,
         schema: {
-          tags: ["admin"], summary: "Update LLM config", security: bearer, params: objectIdParam,
+          tags: ["admin"], summary: "Update LLM config (platform-only)", security: bearer, params: objectIdParam,
           body: {
             type: "object",
             properties: {
@@ -472,16 +597,19 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       }, admin.updateLlmConfig);
 
       r.delete("/llm-configs/:id", {
-        schema: { tags: ["admin"], summary: "Delete LLM config", security: bearer, params: objectIdParam },
+        preHandler: requirePlatform,
+        schema: { tags: ["admin"], summary: "Delete LLM config (platform-only)", security: bearer, params: objectIdParam },
       }, admin.deleteLlmConfig);
 
       r.get("/node-config", {
-        schema: { tags: ["admin"], summary: "Get node→LLM assignments", security: bearer },
+        preHandler: requirePlatform,
+        schema: { tags: ["admin"], summary: "Get node→LLM assignments (platform-only)", security: bearer },
       }, admin.getNodeConfig);
 
       r.put("/node-config", {
+        preHandler: requirePlatform,
         schema: {
-          tags: ["admin"], summary: "Save node→LLM assignments", security: bearer,
+          tags: ["admin"], summary: "Save node→LLM assignments (platform-only)", security: bearer,
           body: {
             type: "object", required: ["assignments"],
             properties: {
@@ -499,13 +627,34 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
         },
       }, admin.updateNodeConfig);
 
+      // API keys — cross-workspace oversight. Every user can self-service
+      // their own workspace's keys via POST/GET/DELETE /v1/api-keys above;
+      // these exist so admin/root can audit and, if needed, kill a key that
+      // isn't theirs (e.g. a compromised or misbehaving integration).
+      r.get("/api-keys", {
+        schema: { tags: ["admin"], summary: "List API keys across every workspace", security: bearer },
+      }, admin.listAllApiKeys);
+
+      r.delete("/api-keys/:keyId", {
+        schema: {
+          tags: ["admin"], summary: "Revoke any workspace's API key", security: bearer,
+          params: {
+            type: "object",
+            required: ["keyId"],
+            properties: { keyId: { type: "string" } },
+          },
+        },
+      }, admin.revokeApiKeyAdmin);
+
       r.get("/database/collections", {
-        schema: { tags: ["admin"], summary: "List collections with counts", security: bearer },
+        preHandler: requirePlatform,
+        schema: { tags: ["admin"], summary: "List collections with counts (platform-only)", security: bearer },
       }, admin.listCollections);
 
       r.get("/database/collections/:collection/docs", {
+        preHandler: requirePlatform,
         schema: {
-          tags: ["admin"], summary: "Paginated documents for a collection", security: bearer,
+          tags: ["admin"], summary: "Paginated documents for a collection (platform-only)", security: bearer,
           params: {
             type: "object",
             properties: { collection: { type: "string" } },
@@ -522,5 +671,53 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
       }, admin.listCollectionDocs);
     },
     { prefix: "/v1/admin" },
+  );
+
+  // ── Platform routes — SaaS operator staff only ──────────────────────────────
+  // The one surface that deliberately crosses organizations. Tenants are
+  // created here off the back of a subscription, replacing public registration.
+  app.register(
+    async (r) => {
+      r.addHook("preHandler", authenticate);
+      r.addHook("preHandler", requirePlatform);
+
+      r.post("/tenants", {
+        schema: {
+          tags: ["platform"],
+          summary: "Provision a new tenant",
+          description: "Creates an organization, its owner (the tenant's root user) and a default workspace in one step, so the customer can log in and start working immediately.",
+          security: bearer,
+          body: {
+            type: "object",
+            required: ["organizationName", "ownerName", "ownerEmail", "ownerPassword"],
+            properties: {
+              organizationName: { type: "string", minLength: 1, maxLength: 160 },
+              ownerName:        { type: "string", minLength: 1, maxLength: 120 },
+              ownerEmail:       { type: "string", format: "email" },
+              ownerPassword:    { type: "string", minLength: 8 },
+              workspaceName:    { type: "string", maxLength: 120, description: "Defaults to '<organization> Workspace'" },
+            },
+          },
+        },
+      }, platform.provisionTenant);
+
+      r.get("/tenants", {
+        schema: { tags: ["platform"], summary: "List all tenants", security: bearer },
+      }, platform.listTenants);
+
+      r.patch("/tenants/:id", {
+        schema: {
+          tags: ["platform"],
+          summary: "Suspend or reactivate a tenant",
+          description: "Cascades to the tenant's users so suspension takes effect at login and on every authenticated request.",
+          security: bearer, params: objectIdParam,
+          body: {
+            type: "object", required: ["status"],
+            properties: { status: { type: "string", enum: ["active", "suspended"] } },
+          },
+        },
+      }, platform.setTenantStatus);
+    },
+    { prefix: "/v1/platform" },
   );
 }

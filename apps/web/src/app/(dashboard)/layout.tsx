@@ -10,6 +10,7 @@ import {
   Settings,
   Bot,
   Users,
+  KeyRound,
   Cpu,
   GitBranch,
   BarChart3,
@@ -33,7 +34,16 @@ const NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin/analytics", label: "Analytics",   icon: BarChart3  },
   { href: "/admin/users",     label: "Users",       icon: Users      },
+  { href: "/admin/api-keys",  label: "API Keys",    icon: KeyRound   },
   { href: "/admin/posts",     label: "All Posts",   icon: FileText   },
+];
+
+/**
+ * Platform-operator screens — see the matching list in app/admin/layout.tsx.
+ * Server-gated by `requireRoot`; hidden here so a non-root admin isn't shown
+ * three nav items that would all 403.
+ */
+const PLATFORM_NAV: NavItem[] = [
   { href: "/admin/llms",      label: "LLM Configs", icon: Cpu        },
   { href: "/admin/nodes",     label: "Node Config", icon: GitBranch  },
   { href: "/admin/database",  label: "Database",    icon: Database   },
@@ -75,8 +85,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar
         userNav={NAV}
-        adminNav={ADMIN_NAV}
-        showAdmin={me?.role === "admin" || me?.role === "root"}
+        adminNav={me?.platformRole === "root" ? [...ADMIN_NAV, ...PLATFORM_NAV] : ADMIN_NAV}
+        showAdmin={Boolean(me?.platformRole) || me?.orgRole === "owner" ||
+          (me?.workspaces ?? []).some((w) => w.myRole === "admin")}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

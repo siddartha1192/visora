@@ -10,6 +10,7 @@
     "start:worker": "node dist/worker.js",
     "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/worker.ts",
+    "create-platform-admin": "node dist/cli/create-platform-admin.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(lint placeholder)\""
   },

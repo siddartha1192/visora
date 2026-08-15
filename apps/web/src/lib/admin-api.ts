@@ -1,4 +1,11 @@
-import type { ApiResponse, UserRole } from "@visora/shared";
+import type {
+  AdminApiKeyDTO,
+  ApiResponse,
+  OrgRole,
+  PlatformRole,
+  PostDTO,
+  WorkspaceRole,
+} from "@visora/shared";
 import { refreshSession, setLogoutReason } from "./api";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
@@ -65,10 +72,25 @@ export interface AdminUser {
   name: string;
   email: string;
   status: "active" | "invited" | "suspended";
-  role: UserRole;
+  organizationId: string | null;
+  /** "owner" marks the tenant's root user. */
+  orgRole: OrgRole | null;
+  /** Non-null only for SaaS operator staff. */
+  platformRole: PlatformRole | null;
+  workspaces: Array<{ workspaceId: string; role: WorkspaceRole }>;
   workspaceCount: number;
   lastLoginAt: string | null;
   createdAt: string;
+}
+
+/** The admin console's view of the caller. */
+export interface AdminMe {
+  id: string;
+  name: string;
+  email: string;
+  orgRole: OrgRole | null;
+  platformRole: PlatformRole | null;
+  organization: { id: string; name: string; slug: string } | null;
 }
 
 export interface LlmConfig {
@@ -146,9 +168,13 @@ export interface AdminPost {
   brief?: string;
   prompt?: string;
   instructions?: string;
+  sourceUrl?: string;
   platforms: string[];
   primaryAssetId?: string;
+  /** Pre-signed thumbnail, resolved server-side — see listAllPosts. */
+  imageUrl?: string;
   lastError?: string;
+  cancelledAt?: string;
   createdAt: string;
 }
 
@@ -182,7 +208,7 @@ export const adminApi = {
     }),
 
   // Admin identity
-  me: () => request<{ id: string; name: string; email: string; role: UserRole }>("/admin/me"),
+  me: () => request<AdminMe>("/admin/me"),
 
   // Posts
   listPosts: (params?: { page?: number; pageSize?: number; status?: string; q?: string }) => {
@@ -193,15 +219,26 @@ export const adminApi = {
     if (params?.q)        qs.set("q", params.q);
     return request<AdminPostsPage>(`/admin/posts?${qs}`);
   },
+  /** Cross-workspace cancel — stops a post without destroying its record. */
+  cancelPost: (id: string) =>
+    request<PostDTO>(`/admin/posts/${id}/cancel`, { method: "POST" }),
   deletePost: (id: string) =>
     request<{ deleted: string }>(`/admin/posts/${id}`, { method: "DELETE" }),
 
   // Users
   listUsers: () => request<AdminUser[]>("/admin/users"),
-  createUser: (data: { name: string; email: string; password: string; role?: "user" | "admin" }) =>
-    request<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(data) }),
-  updateUser: (id: string, patch: Partial<{ status: string; role: "user" | "admin" }>) =>
-    request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  /** Provisions a user into one of your organization's workspaces. */
+  createUser: (data: {
+    name: string;
+    email: string;
+    password: string;
+    workspaceId: string;
+    workspaceRole?: WorkspaceRole;
+  }) => request<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  updateUser: (
+    id: string,
+    patch: Partial<{ status: string; workspaceRole: WorkspaceRole }>,
+  ) => request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteUser: (id: string) =>
     request<{ deleted: string }>(`/admin/users/${id}`, { method: "DELETE" }),
 
@@ -236,4 +273,11 @@ export const adminApi = {
     request<DbDocsPage>(
       `/admin/database/collections/${collection}/docs?page=${page}&pageSize=${pageSize}`,
     ),
+
+  // API keys — cross-workspace oversight only. Every user self-services their
+  // own workspace's keys via api.ts; this is the admin/root audit view across
+  // every workspace, with the ability to kill a key that isn't theirs.
+  listAllApiKeys: () => request<AdminApiKeyDTO[]>("/admin/api-keys"),
+  revokeApiKeyAdmin: (keyId: string) =>
+    request<AdminApiKeyDTO>(`/admin/api-keys/${keyId}`, { method: "DELETE" }),
 };

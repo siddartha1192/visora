@@ -1,10 +1,13 @@
 import type {
+  ApiKeyDTO,
   ApiResponse,
   AssetDTO,
+  CreatedApiKeyDTO,
   CreatePostInput,
+  MeDTO,
   Paginated,
   PostDTO,
-  UserRole,
+  WorkspaceDTO,
 } from "@visora/shared";
 
 export interface LogEntry {
@@ -195,13 +198,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return json.data;
 }
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl: string | null;
-  role: UserRole;
-}
+/**
+ * Identity + tenancy, resolved server-side. `platformRole` gates operator-only
+ * screens; `orgRole === "owner"` marks the tenant's root user; `workspaces` is
+ * already filtered to what the caller can actually reach.
+ */
+export type UserProfile = MeDTO;
 
 export const api = {
   getMe: () => request<UserProfile>("/auth/me"),
@@ -210,11 +212,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  register: (input: { email: string; password: string; name: string }) =>
-    request<{ tokens: { accessToken: string; refreshToken: string } }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
+  // NOTE: register() was removed — accounts are provisioned by an organization
+  // admin, or by platform staff when a new tenant subscribes.
   createPost: (input: CreatePostInput) =>
     request<PostDTO>("/posts", { method: "POST", body: JSON.stringify(input) }),
   listPosts: (page = 1) =>
@@ -258,4 +257,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ prompt }),
     }),
+
+  // Workspaces (brands/products in your organization)
+  listWorkspaces: () => request<WorkspaceDTO[]>("/workspaces"),
+  createWorkspace: (name: string) =>
+    request<WorkspaceDTO>("/workspaces", { method: "POST", body: JSON.stringify({ name }) }),
+  renameWorkspace: (id: string, name: string) =>
+    request<WorkspaceDTO>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  archiveWorkspace: (id: string) =>
+    request<WorkspaceDTO>(`/workspaces/${id}`, { method: "DELETE" }),
+  /** Returns a new access token bound to the target workspace. */
+  switchWorkspace: (workspaceId: string) =>
+    request<{ accessToken: string; workspaceId: string }>("/workspaces/switch", {
+      method: "POST",
+      body: JSON.stringify({ workspaceId }),
+    }),
+
+  // API keys (machine-to-machine) — self-service, scoped to your own workspace
+  listApiKeys: () => request<ApiKeyDTO[]>("/api-keys"),
+  createApiKey: (label: string, expiresInDays: 30 | 90 | 365 | null) =>
+    request<CreatedApiKeyDTO>("/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ label, expiresInDays }),
+    }),
+  revokeApiKey: (keyId: string) =>
+    request<ApiKeyDTO>(`/api-keys/${keyId}`, { method: "DELETE" }),
 };

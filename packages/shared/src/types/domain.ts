@@ -1,10 +1,13 @@
 import type {
   AssetKind,
   AssetSource,
+  OrgRole,
   Platform,
+  PlatformRole,
   PostStatus,
   ScheduleMode,
   TargetStatus,
+  UserRole,
   WorkflowType,
   WorkspaceRole,
 } from "../constants/enums.js";
@@ -75,6 +78,9 @@ export interface PostDTO {
   };
   jobId?: string;
   lastError?: string;
+  /** Set when status is `cancelled` — who stopped it and when. */
+  cancelledAt?: string;
+  cancelledBy?: { userId: string; role: UserRole };
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +88,42 @@ export interface PostDTO {
 export interface WorkspaceMembership {
   workspaceId: string;
   role: WorkspaceRole;
+}
+
+/** A customer organization — the tenant, and the boundary a subscription attaches to. */
+export interface OrganizationDTO {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  creditBalance: number;
+  status: "active" | "suspended";
+  createdAt: string;
+}
+
+/** A workspace (brand/product) within an organization. */
+export interface WorkspaceDTO {
+  id: string;
+  organizationId: string;
+  name: string;
+  ownerId: string | null;
+  /** Present only when the caller's own membership role is relevant. */
+  myRole?: WorkspaceRole;
+  createdAt: string;
+}
+
+/** The caller's identity and everything the UI needs to gate on. */
+export interface MeDTO {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  platformRole: PlatformRole | null;
+  orgRole: OrgRole | null;
+  organization: OrganizationDTO | null;
+  /** Workspaces the caller can actually reach, already resolved server-side. */
+  workspaces: WorkspaceDTO[];
+  activeWorkspaceId: string | null;
 }
 
 export interface UserDTO {
@@ -106,4 +148,32 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+/** A workspace's machine-to-machine credential. Never carries the secret. */
+export interface ApiKeyDTO {
+  keyId: string;
+  label: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revoked: boolean;
+  revokedAt: string | null;
+  /** Display label ("Name (email)") of whoever revoked it — the key's own owner or an admin. Null until revoked. */
+  revokedBy: string | null;
+}
+
+/** Response shape for key creation — the only moment the raw secret is ever returned. */
+export interface CreatedApiKeyDTO {
+  apiKey: ApiKeyDTO;
+  secret: string;
+}
+
+/** Admin-oversight view of a key — same as ApiKeyDTO plus which workspace/owner it belongs to. */
+export interface AdminApiKeyDTO extends ApiKeyDTO {
+  workspaceId: string;
+  workspaceName: string;
+  ownerEmail: string;
+  ownerName: string;
 }

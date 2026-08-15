@@ -9,9 +9,9 @@ import { api, clearAuth, clearLogoutReason, peekLogoutReason, setRefreshToken, s
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { VisoraLogo } from "@/components/ui/logo";
-import { cn } from "@/lib/utils";
 
-type Tab = "login" | "register";
+// Self-registration was removed: accounts are provisioned by an organization
+// admin, or by platform staff when a new tenant subscribes.
 
 const HIGHLIGHTS = [
   { icon: Sparkles, title: "Generate", desc: "Studio-quality imagery from a single prompt" },
@@ -29,8 +29,6 @@ export default function LoginPage() {
   // double-invoke, which would silently clear it before it's ever shown.
   const [loggedOutReason] = useState(peekLogoutReason);
   useEffect(() => { clearLogoutReason(); }, []);
-  const [tab, setTab] = useState<Tab>("login");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -41,10 +39,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res =
-        tab === "login"
-          ? await api.login(email, password)
-          : await api.register({ email, password, name });
+      const res = await api.login(email, password);
       // Evict any previous user's cached data before entering the new session.
       clearAuth();
       queryClient.clear();
@@ -124,12 +119,10 @@ export default function LoginPage() {
 
           <div className="hidden text-center lg:block">
             <h2 className="text-xl font-semibold tracking-[-0.02em]">
-              {tab === "login" ? "Welcome back" : "Create your account"}
+              Welcome back
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {tab === "login"
-                ? "Sign in to keep your content pipeline running."
-                : "Start generating, scheduling, and publishing in minutes."}
+              Sign in to keep your content pipeline running.
             </p>
           </div>
 
@@ -155,38 +148,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Tab switcher */}
-            <div className="mb-6 flex rounded-md border border-border bg-muted/50 p-1">
-              {(["login", "register"] as Tab[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setTab(t); setError(""); }}
-                  className={cn(
-                    "flex-1 rounded-[5px] py-1.5 text-sm font-medium capitalize transition-all duration-150",
-                    tab === t
-                      ? "bg-card text-foreground shadow-elevate-xs ring-1 ring-border"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {t === "login" ? "Sign in" : "Create account"}
-                </button>
-              ))}
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
-              {tab === "register" && (
-                <Field label="Name">
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    className={inputCls}
-                  />
-                </Field>
-              )}
-
               <Field label="Email">
                 <input
                   type="email"
@@ -217,12 +179,12 @@ export default function LoginPage() {
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading
-                  ? "Please wait…"
-                  : tab === "login"
-                  ? "Sign in"
-                  : "Create account"}
+                {loading ? "Please wait…" : "Sign in"}
               </Button>
+
+              <p className="pt-1 text-center text-xs text-muted-foreground/70">
+                Need an account? Ask your organization&apos;s administrator to create one.
+              </p>
             </form>
           </Card>
         </div>

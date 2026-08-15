@@ -7,10 +7,14 @@ const apiKeySchema = new Schema(
     hashedKey: { type: String, required: true },
     label: { type: String, required: true },
     scopes: { type: [String], default: ["posts:write"] },
+    expiresAt: { type: Date, default: null },
     lastUsedAt: { type: Date },
     revoked: { type: Boolean, default: false },
+    revokedAt: { type: Date, default: null },
+    /** Who pulled the trigger — the key's own owner (self-service) or an admin/root (oversight). */
+    revokedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
-  { _id: false },
+  { _id: false, timestamps: true },
 );
 
 const socialAccountSchema = new Schema(
@@ -32,12 +36,21 @@ const socialAccountSchema = new Schema(
 
 const workspaceSchema = new Schema(
   {
+    /**
+     * The tenant this workspace belongs to. A company has one organization and
+     * one workspace per brand/product, each with its own social accounts.
+     * Left optional at the schema level only until the backfill has run — see
+     * migrateToOrganizations in db/seed.ts.
+     */
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
     name: { type: String, required: true },
+    /** Primary admin of this workspace. Access is granted via User.workspaces[]. */
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     apiKeys: { type: [apiKeySchema], default: [] },
     socialAccounts: { type: [socialAccountSchema], default: [] },
-    plan: { type: String, default: "free" },
-    creditBalance: { type: Number, default: 0 },
+    archivedAt: { type: Date, default: null },
+    // NOTE: `plan` and `creditBalance` moved to Organization — billing belongs
+    // to the customer, not to one of their brands.
   },
   { timestamps: true },
 );

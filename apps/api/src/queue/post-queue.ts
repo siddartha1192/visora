@@ -57,7 +57,36 @@ export async function enqueueScheduledPublish(
   const delay = Math.max(0, runAt.getTime() - Date.now());
   const job = await postQueue.add("publish_scheduled_post", data, {
     delay,
-    jobId: `scheduled_publish_${data.postId}`,
+    jobId: scheduledPublishJobId(data.postId),
   });
   return job.id ?? data.postId;
+}
+
+/** Deterministic id — see enqueueScheduledPublish / removeScheduledPublish. */
+export function scheduledPublishJobId(postId: string): string {
+  return `scheduled_publish_${postId}`;
+}
+
+/**
+ * Drops a pending scheduled-publish job. Used when a post is cancelled.
+ *
+ * The worker also refuses to publish anything that isn't `ready`, so this isn't
+ * the only thing standing between a cancelled post and a live publish — but
+ * leaving a delayed job in Redis pointing at a cancelled post is a trap: it
+ * fires, logs a warning, and burns a worker slot for nothing. Removing it keeps
+ * the queue an honest picture of what's actually going to happen.
+ *
+ * Returns false when there was no such job (already fired, or the post was
+ * never scheduled) — that's a normal outcome, not an error.
+ */
+export async function removeScheduledPublish(postId: string): Promise<boolean> {
+  const job = await postQueue.getJob(scheduledPublishJobId(postId));
+  if (!job) return false;
+  // A job already running can't be removed; BullMQ throws rather than racing.
+  try {
+    await job.remove();
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -1,8 +1,14 @@
-import type { CreatePostInput, PostDTO } from "@visora/shared";
+import type { CreatePostInput, PostDTO, UserRole } from "@visora/shared";
+import { isCancellable } from "@visora/shared";
 import { Types } from "mongoose";
-import { JobModel, PostModel } from "../../db/models/index.js";
+import { AgentLogModel, JobModel, PostModel } from "../../db/models/index.js";
 import { NotFoundError, BadRequestError } from "../../lib/errors.js";
-import { enqueuePost, enqueueRetryPublish, enqueueScheduledPublish } from "../../queue/post-queue.js";
+import {
+  enqueuePost,
+  enqueueRetryPublish,
+  enqueueScheduledPublish,
+  removeScheduledPublish,
+} from "../../queue/post-queue.js";
 import { resumePostGraph } from "../../orchestration/runner.js";
 import { toPostDTO } from "./post.serializer.js";
 
@@ -212,19 +218,89 @@ export async function retryPost(
   return toPostDTO(post);
 }
 
-export async function cancelPost(
-  workspaceId: string,
-  postId: string,
-): Promise<PostDTO> {
+/** Why a given status can't be cancelled — surfaced verbatim to the caller. */
+function uncancellableReason(status: string): string {
+  switch (status) {
+    case "publishing":
+      return "This post is being published right now — the platform calls have already gone out, so it can no longer be stopped.";
+    case "published":
+      return "This post has already been published. Cancelling won't remove it from the platforms — delete it there instead.";
+    case "cancelled":
+      return "This post is already cancelled.";
+    case "rejected":
+      return "This post was rejected at review and was never going to publish.";
+    case "failed":
+      return "This post already failed and won't publish. Retry it or delete it instead.";
+    default:
+      return `A post with status "${status}" cannot be cancelled.`;
+  }
+}
+
+/**
+ * Stops a post before it reaches the platforms and marks it `cancelled`.
+ *
+ * Ordering matters: the delayed publish job is dropped *before* the status
+ * write, so there is no window where the queue still holds a live trigger for
+ * a post the DB already considers cancelled. The worker's own `status ===
+ * "ready"` guard covers the reverse ordering, so a failure between the two
+ * steps is safe in either direction.
+ *
+ * `workspaceId` is REQUIRED and always applied. It was previously nullable so
+ * admin routes could reach across workspaces, which meant a single `null`
+ * collapsed this to an unscoped `findOne({_id})`. Admin callers now resolve the
+ * post's real workspace (after an authorization check) and pass it in, so there
+ * is no bypass path left to misuse.
+ */
+export async function cancelPost(args: {
+  workspaceId: string;
+  postId: string;
+  /** `userId` is absent for API-key callers, which have no user behind them. */
+  actor: { userId?: string; role: UserRole };
+}): Promise<PostDTO> {
+  const { workspaceId, postId, actor } = args;
+
   const post = await PostModel.findOne({
     _id: new Types.ObjectId(postId),
     workspaceId: new Types.ObjectId(workspaceId),
   });
   if (!post) throw new NotFoundError("Post");
-  if (["published", "publishing"].includes(post.status)) {
-    return toPostDTO(post); // too late to cancel
+
+  // Previously this silently returned the untouched post for already-published
+  // work, so the caller got a 200 and reasonably assumed the cancel took.
+  if (!isCancellable(post.status)) {
+    throw new BadRequestError(uncancellableReason(post.status));
   }
+
+  await removeScheduledPublish(post._id.toString());
+
   post.status = "cancelled";
+  post.cancelledAt = new Date();
+  if (actor.userId && Types.ObjectId.isValid(actor.userId)) {
+    post.cancelledBy = {
+      userId: new Types.ObjectId(actor.userId),
+      role: actor.role,
+    };
+  }
   await post.save();
+
+  // Mirrored into the execution log so a cancellation appears in the same
+  // drawer as the rest of the pipeline's history rather than being invisible.
+  await AgentLogModel.create({
+    workspaceId: post.workspaceId,
+    postId: post._id,
+    jobId: post.jobId ?? undefined,
+    threadId: post.jobId?.toString() ?? post._id.toString(),
+    node: "pipeline",
+    sequence: 20000,
+    status: "skipped",
+    message:
+      actor.role === "user"
+        ? "Cancelled by the author — publication stopped"
+        : `Cancelled by ${actor.role} — publication stopped`,
+    data: { cancelledBy: actor.userId ?? "api_key", role: actor.role },
+  }).catch(() => {
+    // An audit-log write must never be what fails a cancellation.
+  });
+
   return toPostDTO(post);
 }

@@ -24,11 +24,11 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16).default("dev-insecure-secret-change-me-please"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
-  // Comma-separated list of emails that are automatically promoted to root on
-  // login. Root is the only account tier not creatable via the admin
-  // dashboard — it's the sole way to bootstrap root, and root is in turn the
-  // only role that can create/promote admins.
-  ROOT_EMAILS: z.string().default(""),
+  // NOTE: ROOT_EMAILS was removed. It granted platform access on *login* to any
+  // account whose email appeared in the list, so with registration open whoever
+  // claimed that address first became platform root. Platform staff are now
+  // created explicitly:
+  //   docker exec -it visora-api-1 node dist/cli/create-platform-admin.js
 
   // S3 / storage
   AWS_REGION: z.string().default("us-east-1"),

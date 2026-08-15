@@ -12,7 +12,7 @@ const inputCls =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-shadow duration-150 focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50";
 
 const SAFEGUARDS = [
-  { icon: KeyRound, title: "Role-based access", desc: "Admin and root roles gate every privileged route" },
+  { icon: KeyRound, title: "Tenant isolation", desc: "Every request is scoped to your own organization" },
   { icon: ScrollText, title: "Audit-logged", desc: "Every administrative action is recorded" },
   { icon: TimerOff, title: "Idle auto-lock", desc: "Sessions expire after 15 minutes of inactivity" },
 ];
