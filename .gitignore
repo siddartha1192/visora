@@ -1,4 +1,5 @@
 # dependencies
+api/node_modules/
 node_modules/
 .pnpm-store/
 
@@ -27,6 +28,7 @@ pnpm-debug.log*
 
 # test / coverage
 coverage/
+apps/api/src/test/.mongo-uri
 
 # misc
 .cache/
