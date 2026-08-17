@@ -9,6 +9,8 @@ import * as admin from "../controllers/admin.controller.js";
 import * as prompts from "../controllers/prompt.controller.js";
 import * as workspace from "../controllers/workspace.controller.js";
 import * as platform from "../controllers/platform.controller.js";
+import * as invitations from "../controllers/invitation.controller.js";
+import * as orgLlmConfigs from "../controllers/llm-config.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -74,6 +76,46 @@ export async function registerRoutes(app: FastifyInstance) {
       }, auth.refresh);
     },
     { prefix: "/v1/auth" },
+  );
+
+  // ── Public invite routes ──────────────────────────────────────────────────
+  app.register(
+    async (r) => {
+      r.get("/:token", {
+        schema: {
+          tags: ["invites"],
+          summary: "Preview an invitation",
+          description: "Public — lets the frontend show \"You've been invited to join {org}\" before the recipient sets a password.",
+          params: {
+            type: "object",
+            required: ["token"],
+            properties: { token: { type: "string" } },
+          },
+        },
+      }, invitations.previewInvite);
+
+      r.post("/:token/accept", {
+        schema: {
+          tags: ["invites"],
+          summary: "Accept an invitation",
+          description: "Public — validates the token and expiry, creates the account bound to the invited workspace/role, and marks the invitation accepted.",
+          params: {
+            type: "object",
+            required: ["token"],
+            properties: { token: { type: "string" } },
+          },
+          body: {
+            type: "object",
+            required: ["name", "password"],
+            properties: {
+              name: { type: "string", minLength: 1, maxLength: 120 },
+              password: { type: "string", minLength: 8 },
+            },
+          },
+        },
+      }, invitations.acceptInvite);
+    },
+    { prefix: "/v1/invites" },
   );
 
   // ── Authenticated API surface (JWT or API key) ────────────────────────────
@@ -190,6 +232,109 @@ export async function registerRoutes(app: FastifyInstance) {
           },
         },
       }, workspace.switchWorkspace);
+
+      // ── Workspace invites ────────────────────────────────────────────────
+      // Authorization mirrors admin.createUser exactly (adminableWorkspaceIds):
+      // the tenant root may invite onto any workspace in their org; a
+      // workspace admin only onto workspaces they themselves administer.
+      r.post("/workspaces/:id/invites", {
+        schema: {
+          tags: ["invites"],
+          summary: "Invite a user onto a workspace",
+          description: "Creates an invitation and returns the accept link/token directly — there is no mail sender in this stack, so the link must be relayed by whoever calls this (shown in the admin UI, or read from server logs in dev).",
+          security: bearer, params: objectIdParam,
+          body: {
+            type: "object", required: ["email", "role"],
+            properties: {
+              email: { type: "string", format: "email" },
+              role: { type: "string", enum: ["admin", "editor", "viewer"] },
+            },
+          },
+        },
+      }, invitations.createInvite);
+
+      r.get("/workspaces/:id/invites", {
+        schema: {
+          tags: ["invites"],
+          summary: "List invitations on workspaces you administer",
+          security: bearer, params: objectIdParam,
+        },
+      }, invitations.listInvites);
+
+      r.delete("/invites/:invitationId", {
+        schema: {
+          tags: ["invites"],
+          summary: "Revoke a pending invitation",
+          security: bearer,
+          params: {
+            type: "object",
+            required: ["invitationId"],
+            properties: { invitationId: { type: "string" } },
+          },
+        },
+      }, invitations.revokeInvite);
+
+      // ── BYOK LLM configs (organization owner only) ──────────────────────
+      // Distinct from the platform-global /admin/llm-configs below: these are
+      // scoped to the caller's own organization and never visible to, or
+      // touched by, another tenant or the platform config CRUD.
+      r.get("/llm-configs", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["llm-configs"],
+          summary: "List your organization's BYOK LLM configs",
+          security: bearer,
+        },
+      }, orgLlmConfigs.listOrgLlmConfigs);
+
+      r.post("/llm-configs", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["llm-configs"],
+          summary: "Add a BYOK LLM config for your organization",
+          description: "When active, this key is preferred over the platform default for the same provider on every pipeline run in your organization — see resolveNodeAdapters.",
+          security: bearer,
+          body: {
+            type: "object",
+            required: ["label", "provider", "apiKey"],
+            properties: {
+              label: { type: "string", minLength: 1, maxLength: 120 },
+              provider: { type: "string", enum: ["openai", "anthropic", "google"] },
+              apiKey: { type: "string", minLength: 1 },
+              chatModel: { type: "string" },
+              imageModel: { type: "string" },
+            },
+          },
+        },
+      }, orgLlmConfigs.createOrgLlmConfig);
+
+      r.patch("/llm-configs/:id", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["llm-configs"],
+          summary: "Update one of your organization's BYOK LLM configs",
+          security: bearer, params: objectIdParam,
+          body: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              apiKey: { type: "string" },
+              chatModel: { type: "string" },
+              imageModel: { type: "string" },
+              isActive: { type: "boolean" },
+            },
+          },
+        },
+      }, orgLlmConfigs.updateOrgLlmConfig);
+
+      r.delete("/llm-configs/:id", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["llm-configs"],
+          summary: "Delete one of your organization's BYOK LLM configs",
+          security: bearer, params: objectIdParam,
+        },
+      }, orgLlmConfigs.deleteOrgLlmConfig);
 
       // Posts
       r.post("/posts", {

@@ -1,10 +1,11 @@
 import { Worker, type Job } from "bullmq";
 import { Types } from "mongoose";
 import type { Platform } from "@visora/shared";
-import { AgentLogModel, AssetModel, JobModel, PostModel } from "../db/models/index.js";
+import { AgentLogModel, AssetModel, JobModel, PostModel, WorkspaceModel } from "../db/models/index.js";
 import { logger } from "../lib/logger.js";
 import { appLog } from "../lib/logging/index.js";
 import { runPostGraph, getServices } from "../orchestration/runner.js";
+import { resolvePublisher } from "../modules/workspace/publisher-resolver.js";
 import { connection, POST_QUEUE_NAME } from "./connection.js";
 import { enqueueScheduledPublish, type ProcessPostJobData } from "./post-queue.js";
 
@@ -28,6 +29,8 @@ async function runPublishStep(
 
   if (!asset) throw new Error(`${context}: no asset for post ${postId}`);
 
+  const workspace = await WorkspaceModel.findById(post.workspaceId, "socialAccounts").lean();
+
   const captionText = post.caption?.text ?? "";
   const hashtags    = post.caption?.hashtags ?? [];
   const fullCaption = [
@@ -43,7 +46,9 @@ async function runPublishStep(
         asset.variants.find((v) => v.platform === target.platform) ??
         asset.variants[0];
       const imageUrl = variant?.cloudinaryUrl;
-      const publisher = services.publishers[target.platform as Platform];
+      const publisher = workspace
+        ? resolvePublisher(workspace, target.platform as Platform, services.publishers)
+        : services.publishers[target.platform as Platform];
 
       if (!imageUrl) {
         return {
@@ -165,6 +170,7 @@ async function retryPublishPost(postId: string, workspaceId: string, jobId: stri
     const services = await getServices();
     const asset = post.primaryAssetId ? await AssetModel.findById(post.primaryAssetId) : null;
     if (!asset) throw new Error("no asset for post — cannot retry publish");
+    const workspace = await WorkspaceModel.findById(post.workspaceId, "socialAccounts").lean();
 
     const captionText = post.caption?.text ?? "";
     const hashtags    = post.caption?.hashtags ?? [];
@@ -178,7 +184,9 @@ async function retryPublishPost(postId: string, workspaceId: string, jobId: stri
         const variant =
           asset.variants.find((v) => v.platform === target.platform) ?? asset.variants[0];
         const imageUrl = variant?.cloudinaryUrl;
-        const publisher = services.publishers[target.platform as Platform];
+        const publisher = workspace
+          ? resolvePublisher(workspace, target.platform as Platform, services.publishers)
+          : services.publishers[target.platform as Platform];
 
         if (!imageUrl) {
           return { platform: target.platform, accountId: target.accountId, status: "failed" as const, error: "no optimized variant available" };

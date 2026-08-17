@@ -12,7 +12,7 @@
 import { Command } from "@langchain/langgraph";
 import { Types } from "mongoose";
 import type { PostDoc } from "../db/models/index.js";
-import { AgentLogModel } from "../db/models/index.js";
+import { AgentLogModel, WorkspaceModel } from "../db/models/index.js";
 import { createContainer, type ServiceContainer } from "../config/container.js";
 import { resolveNodeAdapters } from "./node-adapters.js";
 import { logger } from "../lib/logger.js";
@@ -34,6 +34,17 @@ async function getGraph(): Promise<{ graph: CompiledGraph; services: ServiceCont
 /** Returns the cached service container without compiling the full graph. */
 export async function getServices(): Promise<ServiceContainer> {
   return (await getGraph()).services;
+}
+
+/**
+ * organizationId isn't denormalized onto Post (see plan notes), so BYOK
+ * resolution looks it up via the post's workspace — one extra query per
+ * pipeline run, negligible next to the LLM/publish calls the run makes.
+ */
+async function resolveOrganizationId(workspaceId: Types.ObjectId | undefined): Promise<Types.ObjectId | undefined> {
+  if (!workspaceId) return undefined;
+  const workspace = await WorkspaceModel.findById(workspaceId, "organizationId").lean();
+  return workspace?.organizationId ?? undefined;
 }
 
 /** Maps a persisted Post into the graph's initial channel state. */
@@ -121,7 +132,7 @@ export async function runPostGraph(post: PostDoc, jobId: string) {
   });
 
   try {
-    const nodeAdapters = await resolveNodeAdapters();
+    const nodeAdapters = await resolveNodeAdapters(await resolveOrganizationId(base.workspaceId));
     const result = await graph.invoke(initialState(post, jobId), {
       configurable: { services: svc, nodeAdapters, thread_id: jobId },
       recursionLimit: 50,
@@ -179,7 +190,7 @@ export async function resumePostGraph(
   });
 
   try {
-    const nodeAdapters = await resolveNodeAdapters();
+    const nodeAdapters = await resolveNodeAdapters(await resolveOrganizationId(base.workspaceId));
     const result = await graph.invoke(
       new Command({ resume: decision }),
       { configurable: { services: svc, nodeAdapters, thread_id: threadId }, recursionLimit: 50 },

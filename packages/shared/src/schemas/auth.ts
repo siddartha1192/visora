@@ -25,3 +25,15 @@ export const createApiKeySchema = z.object({
   expiresInDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).nullable(),
 });
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
+
+export const createInvitationSchema = z.object({
+  email: z.string().email().toLowerCase(),
+  role: z.enum(["admin", "editor", "viewer"]),
+});
+export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+
+export const acceptInvitationSchema = z.object({
+  name: z.string().min(1).max(120),
+  password: z.string().min(8).max(128),
+});
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;

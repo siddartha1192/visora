@@ -57,7 +57,7 @@ function formatUser(u: InstanceType<typeof UserModel>) {
  * only the workspaces they actually administer — that boundary is what stops
  * one brand's admin from reaching another brand's people.
  */
-async function adminableWorkspaceIds(req: FastifyRequest): Promise<Types.ObjectId[]> {
+export async function adminableWorkspaceIds(req: FastifyRequest): Promise<Types.ObjectId[]> {
   const auth = req.auth!;
   if (auth.orgRole === "owner") return workspaceIdsForOrg(auth.organizationId);
 
@@ -434,10 +434,14 @@ export async function deletePost(req: FastifyRequest, reply: FastifyReply) {
   return ok(reply, { deleted: id });
 }
 
-// ── LLM Configs ───────────────────────────────────────────────────────────────
+// ── LLM Configs (platform-global — organizationId: null) ───────────────────
+// BYOK org-owned configs live in modules/workspace/llm-config.service.ts and
+// are never returned here — mixing the two would show one tenant's own key
+// inside another tenant-invisible platform list, or let a platform-config
+// mutation accidentally touch a tenant's BYOK row.
 
 export async function listLlmConfigs(_req: FastifyRequest, reply: FastifyReply) {
-  const configs = await LlmConfigModel.find().sort({ createdAt: -1 });
+  const configs = await LlmConfigModel.find({ organizationId: null }).sort({ createdAt: -1 });
   return ok(reply, configs.map(formatLlmConfig));
 }
 
@@ -449,7 +453,7 @@ export async function createLlmConfig(req: FastifyRequest, reply: FastifyReply) 
     chatModel?: string;
     imageModel?: string;
   };
-  const cfg = await LlmConfigModel.create(body);
+  const cfg = await LlmConfigModel.create({ ...body, organizationId: null });
   return created(reply, formatLlmConfig(cfg));
 }
 
@@ -463,8 +467,8 @@ export async function updateLlmConfig(req: FastifyRequest, reply: FastifyReply) 
     imageModel: string;
     isActive: boolean;
   }>;
-  const cfg = await LlmConfigModel.findByIdAndUpdate(
-    new Types.ObjectId(id),
+  const cfg = await LlmConfigModel.findOneAndUpdate(
+    { _id: new Types.ObjectId(id), organizationId: null },
     { $set: patch },
     { new: true },
   );
@@ -474,7 +478,7 @@ export async function updateLlmConfig(req: FastifyRequest, reply: FastifyReply) 
 
 export async function deleteLlmConfig(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
-  const cfg = await LlmConfigModel.findByIdAndDelete(new Types.ObjectId(id));
+  const cfg = await LlmConfigModel.findOneAndDelete({ _id: new Types.ObjectId(id), organizationId: null });
   if (!cfg) throw new NotFoundError("LLM config");
   return ok(reply, { deleted: id });
 }

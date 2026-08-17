@@ -177,3 +177,33 @@ export interface AdminApiKeyDTO extends ApiKeyDTO {
   ownerEmail: string;
   ownerName: string;
 }
+
+/** A pending/resolved self-serve workspace invite. Never carries the raw token. */
+export interface InvitationDTO {
+  id: string;
+  organizationId: string;
+  workspaceId: string;
+  workspaceName: string;
+  email: string;
+  role: WorkspaceRole;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  invitedByName: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Response shape for invite creation — the only moment the raw token/link is ever returned. */
+export interface CreatedInvitationDTO {
+  invitation: InvitationDTO;
+  token: string;
+  acceptUrl: string;
+}
+
+/** Public preview shown before a recipient sets their password. */
+export interface InvitationPreviewDTO {
+  organizationName: string;
+  workspaceName: string;
+  email: string;
+  role: WorkspaceRole;
+  expiresAt: string;
+}

@@ -3,7 +3,7 @@
  * Called once per pipeline run so that changes saved in the admin panel take
  * effect on the next run without requiring an API restart.
  */
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 import { NodeConfigModel, LlmConfigModel } from "../db/models/index.js";
 import {
   OpenAILanguageModel,
@@ -65,8 +65,14 @@ function buildAdapters(
  *
  * Returns an empty map when no NodeConfig exists or no assignments are set,
  * so callers can always fall back to the env-var container adapters.
+ *
+ * BYOK: when `organizationId` is given and that org has its own active
+ * LlmConfig for the same provider as the platform admin's assignment, the
+ * org's key is used instead — same model/chat/image settings the platform
+ * config carries, just billed to the org's own key. An org with no BYOK
+ * config for that provider gets exactly today's platform-default behavior.
  */
-export async function resolveNodeAdapters(): Promise<NodeAdaptersMap> {
+export async function resolveNodeAdapters(organizationId?: Types.ObjectId): Promise<NodeAdaptersMap> {
   const nodeConfig = await NodeConfigModel.findOne({ singletonKey: "global" }).lean();
   if (!nodeConfig) return {};
 
@@ -89,11 +95,20 @@ export async function resolveNodeAdapters(): Promise<NodeAdaptersMap> {
 
   const configById = new Map(configs.map((c) => [c._id.toString(), c]));
 
+  const orgConfigByProvider = organizationId
+    ? new Map(
+        (
+          await LlmConfigModel.find({ organizationId, isActive: true }).lean()
+        ).map((c) => [c.provider, c]),
+      )
+    : new Map();
+
   const result: NodeAdaptersMap = {};
   for (const [node, llmId] of Object.entries(assignments)) {
     if (!llmId) continue;
-    const cfg = configById.get(llmId.toString());
-    if (!cfg) continue;
+    const platformCfg = configById.get(llmId.toString());
+    if (!platformCfg) continue;
+    const cfg = orgConfigByProvider.get(platformCfg.provider) ?? platformCfg;
     result[node] = buildAdapters(
       cfg.provider,
       cfg.apiKey,

@@ -4,6 +4,7 @@ import type {
   AssetDTO,
   CreatedApiKeyDTO,
   CreatePostInput,
+  InvitationPreviewDTO,
   MeDTO,
   Paginated,
   PostDTO,
@@ -199,6 +200,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /**
+ * Unauthenticated request — the invite preview/accept endpoints are public
+ * (the token itself is the credential), so this deliberately skips the
+ * token/refresh machinery in `request()`: an anonymous visitor has no
+ * session to refresh, and running that logic here would misfire a "session
+ * expired" redirect for someone who was never logged in.
+ */
+async function publicRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await doFetch(path, init, null);
+  const json = (await res.json()) as ApiResponse<T>;
+  if (!json.ok) {
+    const e = json.error as Record<string, unknown>;
+    throw new ApiError(json.error.message, e.code as string | undefined, e.details);
+  }
+  return json.data;
+}
+
+/**
  * Identity + tenancy, resolved server-side. `platformRole` gates operator-only
  * screens; `orgRole === "owner"` marks the tenant's root user; `workspaces` is
  * already filtered to what the caller can actually reach.
@@ -282,4 +300,13 @@ export const api = {
     }),
   revokeApiKey: (keyId: string) =>
     request<ApiKeyDTO>(`/api-keys/${keyId}`, { method: "DELETE" }),
+
+  // Invites (public — no session required)
+  previewInvite: (token: string) =>
+    publicRequest<InvitationPreviewDTO>(`/invites/${token}`),
+  acceptInvite: (token: string, input: { name: string; password: string }) =>
+    publicRequest<{ userId: string; email: string }>(`/invites/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 };

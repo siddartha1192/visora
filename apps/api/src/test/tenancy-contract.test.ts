@@ -34,6 +34,12 @@ const PUBLIC: ReadonlySet<RouteKey> = new Set<RouteKey>([
   "GET /health",
   "POST /v1/auth/login",
   "POST /v1/auth/refresh",
+
+  // Invite preview/accept — the token itself is the credential, same trust
+  // model as a password-reset link. No org/workspace context exists yet for
+  // the caller until the token is validated inside the handler.
+  "GET /v1/invites/:token",
+  "POST /v1/invites/:token/accept",
 ]);
 
 const TENANT_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>([
@@ -51,6 +57,19 @@ const TENANT_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>([
   "PATCH /v1/workspaces/:id",
   "DELETE /v1/workspaces/:id",
   "POST /v1/workspaces/switch",
+
+  // Workspace invites — scoped to workspaces the caller administers, via
+  // the same adminableWorkspaceIds predicate admin.createUser uses.
+  "POST /v1/workspaces/:id/invites",
+  "GET /v1/workspaces/:id/invites",
+  "DELETE /v1/invites/:invitationId",
+
+  // BYOK LLM configs — requireOrgOwner, always filtered to req.auth.organizationId.
+  // Distinct from the PLATFORM_GLOBAL /v1/admin/llm-configs below.
+  "GET /v1/llm-configs",
+  "POST /v1/llm-configs",
+  "PATCH /v1/llm-configs/:id",
+  "DELETE /v1/llm-configs/:id",
 
   // Posts — scoped to req.auth.workspaceId
   "POST /v1/posts",

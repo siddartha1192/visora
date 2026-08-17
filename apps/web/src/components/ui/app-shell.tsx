@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { VisoraLogo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserMenu } from "@/components/ui/user-menu";
+import { WorkspaceSwitcher } from "@/components/ui/workspace-switcher";
 
 export interface NavItem {
   href: string;
@@ -94,6 +95,8 @@ export function Topbar({ onLogout }: { onLogout: () => void }) {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-end gap-3 border-b border-border bg-background/85 px-6 backdrop-blur-md">
+      <WorkspaceSwitcher />
+      <div className="mr-auto" />
       {!onComposeAlready && (
         <>
           <Link href="/compose">

@@ -1,6 +1,8 @@
 import type {
   AdminApiKeyDTO,
   ApiResponse,
+  CreatedInvitationDTO,
+  InvitationDTO,
   OrgRole,
   PlatformRole,
   PostDTO,
@@ -241,6 +243,19 @@ export const adminApi = {
   ) => request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteUser: (id: string) =>
     request<{ deleted: string }>(`/admin/users/${id}`, { method: "DELETE" }),
+
+  // Invites — self-serve alternative to createUser. The raw token/link is
+  // returned exactly once, at creation — there is no mail sender in this
+  // stack, so the caller (this admin UI) is responsible for relaying it.
+  createInvite: (workspaceId: string, data: { email: string; role: WorkspaceRole }) =>
+    request<CreatedInvitationDTO>(`/workspaces/${workspaceId}/invites`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  listInvites: (workspaceId: string) =>
+    request<InvitationDTO[]>(`/workspaces/${workspaceId}/invites`),
+  revokeInvite: (invitationId: string) =>
+    request<{ revoked: string }>(`/invites/${invitationId}`, { method: "DELETE" }),
 
   // LLM Configs
   listLlmConfigs: () => request<LlmConfig[]>("/admin/llm-configs"),
