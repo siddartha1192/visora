@@ -35,6 +35,11 @@ const PUBLIC: ReadonlySet<RouteKey> = new Set<RouteKey>([
   "POST /v1/auth/login",
   "POST /v1/auth/refresh",
 
+  // Signup — payment-gated self-service account creation. No org/workspace
+  // context exists yet for the caller until the mock payment clears and
+  // provisionTenant runs inside the handler.
+  "POST /v1/auth/signup",
+
   // Invite preview/accept — the token itself is the credential, same trust
   // model as a password-reset link. No org/workspace context exists yet for
   // the caller until the token is validated inside the handler.

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { isTest } from "../../config/env.js";
 import { assertMembership, authenticate } from "../middleware/auth.js";
 import { requireOrgMember, requireOrgOwner, requirePlatform } from "../middleware/admin.js";
 import * as auth from "../controllers/auth.controller.js";
@@ -11,6 +12,7 @@ import * as workspace from "../controllers/workspace.controller.js";
 import * as platform from "../controllers/platform.controller.js";
 import * as invitations from "../controllers/invitation.controller.js";
 import * as orgLlmConfigs from "../controllers/llm-config.controller.js";
+import * as signup from "../controllers/signup.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -40,11 +42,45 @@ export async function registerRoutes(app: FastifyInstance) {
   // ── Public auth routes ────────────────────────────────────────────────────
   app.register(
     async (r) => {
-      // NOTE: POST /register was removed. It was the only thing that created a
-      // workspace and it handed one to any anonymous caller, which is
-      // incompatible with tenants being provisioned off a subscription.
-      // New customers  → POST /v1/platform/tenants (platform staff)
-      // New colleagues → POST /v1/admin/users      (their own org's admins)
+      // New customers  → POST /v1/signup (self-service, payment-gated) or
+      //                   POST /v1/platform/tenants (platform staff — e.g.
+      //                   enterprise/manual onboarding)
+      // New colleagues → POST /v1/admin/users (their own org's admins) or
+      //                   the workspace-invite flow (POST /v1/workspaces/:id/invites)
+
+      r.post("/signup", {
+        // The tight limit exists to make signup-spam expensive, not to gate
+        // the test suite — which legitimately calls this route many times.
+        config: {
+          rateLimit: isTest ? false : { max: 5, timeWindow: "10 minutes" },
+        },
+        schema: {
+          tags: ["auth"],
+          summary: "Public self-service signup",
+          description: "Creates a new organization, its owner, and a default workspace, then charges the selected plan (mock payment provider today) before any record is written. Returns tokens directly — no separate login call needed.",
+          body: {
+            type: "object",
+            required: ["organizationName", "ownerName", "email", "password", "planId", "card"],
+            properties: {
+              organizationName: { type: "string", minLength: 1, maxLength: 160 },
+              ownerName: { type: "string", minLength: 1, maxLength: 120 },
+              email: { type: "string", format: "email" },
+              password: { type: "string", minLength: 8 },
+              planId: { type: "string", enum: ["basic", "premium"] },
+              card: {
+                type: "object",
+                required: ["number", "expMonth", "expYear", "cvc"],
+                properties: {
+                  number: { type: "string" },
+                  expMonth: { type: "number" },
+                  expYear: { type: "number" },
+                  cvc: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      }, signup.signup);
 
       r.post("/login", {
         schema: {

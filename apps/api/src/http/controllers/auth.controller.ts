@@ -11,7 +11,7 @@ import {
 } from "../../modules/workspace/tenant.service.js";
 import { ok } from "../reply.js";
 
-function issueTokens(req: FastifyRequest, user: AuthedUser) {
+export function issueTokens(req: FastifyRequest, user: AuthedUser) {
   // `orgId` is a signed claim so downstream code has the tenant without a
   // lookup — but it is always re-read from the database in assertMembership,
   // so a stale or tampered claim can never widen access.

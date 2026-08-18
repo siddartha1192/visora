@@ -10,9 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { VisoraLogo } from "@/components/ui/logo";
 
-// Self-registration was removed: accounts are provisioned by an organization
-// admin, or by platform staff when a new tenant subscribes.
-
 const HIGHLIGHTS = [
   { icon: Sparkles, title: "Generate", desc: "Studio-quality imagery from a single prompt" },
   { icon: Wand2, title: "Enhance", desc: "AI-edit uploads to studio quality" },
@@ -183,7 +180,10 @@ export default function LoginPage() {
               </Button>
 
               <p className="pt-1 text-center text-xs text-muted-foreground/70">
-                Need an account? Ask your organization&apos;s administrator to create one.
+                New here? <Link href="/signup" className="text-primary hover:underline">Create your organization</Link>
+              </p>
+              <p className="text-center text-xs text-muted-foreground/50">
+                Joining a team? Ask your admin to invite you.
               </p>
             </form>
           </Card>

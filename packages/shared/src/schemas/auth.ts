@@ -1,12 +1,22 @@
 import { z } from "zod";
+import { PLAN_IDS } from "../constants/plans.js";
 
-export const registerSchema = z.object({
+export const signupSchema = z.object({
+  organizationName: z.string().min(1).max(160),
+  ownerName: z.string().min(1).max(120),
   email: z.string().email().toLowerCase(),
   password: z.string().min(8).max(128),
-  name: z.string().min(1).max(120),
-  workspaceName: z.string().min(1).max(120).optional(),
+  planId: z.enum(PLAN_IDS),
+  // Mock-only "card" fields — a placeholder until a real gateway (Stripe
+  // Elements/Checkout) replaces this whole block. Never persisted.
+  card: z.object({
+    number: z.string().min(12).max(19),
+    expMonth: z.number().int().min(1).max(12),
+    expYear: z.number().int().min(2024).max(2100),
+    cvc: z.string().min(3).max(4),
+  }),
 });
-export type RegisterInput = z.infer<typeof registerSchema>;
+export type SignupInput = z.infer<typeof signupSchema>;
 
 export const loginSchema = z.object({
   email: z.string().email().toLowerCase(),

@@ -6,8 +6,10 @@ import type {
   CreatePostInput,
   InvitationPreviewDTO,
   MeDTO,
+  OrganizationDTO,
   Paginated,
   PostDTO,
+  SignupInput,
   WorkspaceDTO,
 } from "@visora/shared";
 
@@ -230,8 +232,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  // NOTE: register() was removed — accounts are provisioned by an organization
-  // admin, or by platform staff when a new tenant subscribes.
+  /** Public — creates an organization + owner + default workspace, gated behind the (mock) payment. Returns tokens directly, no separate login call needed. */
+  signup: (input: SignupInput) =>
+    publicRequest<{
+      tokens: { accessToken: string; refreshToken: string; expiresIn: number };
+      organization: OrganizationDTO;
+      workspace: WorkspaceDTO;
+    }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   createPost: (input: CreatePostInput) =>
     request<PostDTO>("/posts", { method: "POST", body: JSON.stringify(input) }),
   listPosts: (page = 1) =>

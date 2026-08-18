@@ -1,6 +1,7 @@
 import argon2 from "argon2";
 import { Types } from "mongoose";
 import type { OrganizationDTO, WorkspaceDTO } from "@visora/shared";
+import { PLANS } from "@visora/shared";
 import { OrganizationModel, UserModel, WorkspaceModel } from "../../db/models/index.js";
 import { uniqueSlug } from "../../db/seed.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
@@ -60,6 +61,8 @@ export async function provisionTenant(input: {
   ownerEmail: string;
   ownerPassword: string;
   workspaceName?: string;
+  /** Defaults to Organization's schema default ("free") when omitted — platform-provisioned tenants are upgraded separately. */
+  plan?: string;
 }): Promise<{ organization: OrganizationDTO; workspace: WorkspaceDTO; ownerId: string }> {
   const email = input.ownerEmail.toLowerCase();
   if (await UserModel.exists({ email })) {
@@ -69,6 +72,7 @@ export async function provisionTenant(input: {
   const org = await OrganizationModel.create({
     name: input.organizationName,
     slug: await uniqueSlug(input.organizationName),
+    ...(input.plan ? { plan: input.plan } : {}),
   });
 
   // The owner is created before the workspace so the workspace has a real
@@ -115,6 +119,19 @@ export async function createWorkspace(input: {
 
   const creator = await UserModel.findById(new Types.ObjectId(input.creatorUserId));
   if (!creator) throw new NotFoundError("User");
+
+  const planDef = PLANS[org.plan as keyof typeof PLANS];
+  if (planDef?.maxWorkspaces != null) {
+    const activeCount = await WorkspaceModel.countDocuments({
+      organizationId: org._id,
+      archivedAt: null,
+    });
+    if (activeCount >= planDef.maxWorkspaces) {
+      throw new ConflictError(
+        `Your ${planDef.name} plan allows up to ${planDef.maxWorkspaces} workspace${planDef.maxWorkspaces === 1 ? "" : "s"}. Upgrade to add more.`,
+      );
+    }
+  }
 
   const workspace = await WorkspaceModel.create({
     organizationId: org._id,
