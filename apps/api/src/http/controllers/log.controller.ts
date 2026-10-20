@@ -38,6 +38,19 @@ function isPipelineDone(log: AgentLogDoc): boolean {
   return log.node === "pipeline" && (log.status === "succeeded" || log.status === "failed");
 }
 
+/**
+ * Tenant-scoped log filter. `postId` alone is NOT sufficient: an ObjectId is
+ * guessable/enumerable, and without the workspace clause any authenticated
+ * caller could read another workspace's prompts, model output and cost data.
+ * `AgentLog` carries `workspaceId` precisely so this filter is possible.
+ */
+function logFilter(req: FastifyRequest, postId: string) {
+  return {
+    postId: new Types.ObjectId(postId),
+    workspaceId: new Types.ObjectId(req.auth!.workspaceId),
+  };
+}
+
 // ── GET /v1/posts/:id/logs ────────────────────────────────────────────────────
 
 export async function getLogs(
@@ -50,7 +63,7 @@ export async function getLogs(
   }
 
   const logs = await AgentLogModel
-    .find({ postId: new Types.ObjectId(id) })
+    .find(logFilter(request, id))
     .sort({ createdAt: 1 })
     .lean();
 
@@ -91,8 +104,9 @@ export async function streamLogs(
   };
 
   // ── 1. Send all existing entries immediately ─────────────────────────────
+  const scoped = logFilter(request, id);
   const existing = await AgentLogModel
-    .find({ postId: new Types.ObjectId(id) })
+    .find(scoped)
     .sort({ createdAt: 1 })
     .lean();
 
@@ -120,7 +134,7 @@ export async function streamLogs(
     }
     try {
       const newLogs = await AgentLogModel
-        .find({ postId: new Types.ObjectId(id), createdAt: { $gt: lastCreatedAt } })
+        .find({ ...scoped, createdAt: { $gt: lastCreatedAt } })
         .sort({ createdAt: 1 })
         .lean();
 

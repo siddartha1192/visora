@@ -28,6 +28,7 @@ pnpm-debug.log*
 
 # test / coverage
 coverage/
+apps/api/src/test/.mongo-uri
 
 # misc
 .cache/

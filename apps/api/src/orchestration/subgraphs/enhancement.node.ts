@@ -21,7 +21,13 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
   if (!assetId) throw new Error("enhancement: uploadedAssetId is required");
   if (!instructions) throw new Error("enhancement: instructions are required");
 
-  const source = await AssetModel.findById(new Types.ObjectId(assetId));
+  // Scoped by workspace — see the matching comment in passthrough.node.ts.
+  // Unscoped, this would fetch another workspace's image bytes and feed them
+  // to the image editor.
+  const source = await AssetModel.findOne({
+    _id: new Types.ObjectId(assetId),
+    workspaceId: new Types.ObjectId(state.workspaceId),
+  });
   if (!source?.s3) throw new Error(`enhancement: asset ${assetId} not found`);
 
   const original = await ctx.services.objectStore.get(source.s3.key);

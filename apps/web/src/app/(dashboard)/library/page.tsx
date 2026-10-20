@@ -4,7 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { AssetDTO } from "@visora/shared";
 import { api } from "@/lib/api";
 import { useCallback, useEffect, useState } from "react";
-import { Download, X, ZoomIn } from "lucide-react";
+import { Download, Images, X, ZoomIn } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const KIND_FILTERS = [
   { label: "All", value: undefined },
@@ -59,12 +62,11 @@ export default function LibraryPage() {
   return (
     <>
       <div className="mx-auto max-w-6xl space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Library</h1>
-          <p className="text-muted-foreground">
-            Every asset the agents have produced, with per-platform variants.
-          </p>
-        </header>
+        <PageHeader
+          icon={<Images className="h-5 w-5" />}
+          title="Library"
+          description="Every asset the agents have produced, with per-platform variants."
+        />
 
         {/* Kind filter tabs */}
         <div className="flex flex-wrap gap-2">
@@ -92,10 +94,7 @@ export default function LibraryPage() {
         {isLoading && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square animate-pulse rounded-xl bg-secondary"
-              />
+              <Skeleton key={i} className="aspect-square rounded-xl" />
             ))}
           </div>
         )}
@@ -107,12 +106,11 @@ export default function LibraryPage() {
         )}
 
         {data && data.items.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-24 text-center">
-            <p className="text-lg font-medium text-muted-foreground">No assets yet</p>
-            <p className="mt-1 text-sm text-muted-foreground/60">
-              Generate or upload content from the Compose page.
-            </p>
-          </div>
+          <EmptyState
+            icon={Images}
+            title="No assets yet"
+            description="Generate or upload content from the Compose page."
+          />
         )}
 
         {/* Grid */}

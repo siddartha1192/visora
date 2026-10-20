@@ -1,5 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { createPostSchema } from "@visora/shared";
+import { Types } from "mongoose";
+import { createPostSchema, type UserRole } from "@visora/shared";
+import { UserModel } from "../../db/models/index.js";
 import {
   approvePost,
   cancelPost,
@@ -77,9 +79,51 @@ export async function getOne(req: FastifyRequest, reply: FastifyReply) {
   return ok(reply, await getPost(req.auth!.workspaceId, id));
 }
 
+/**
+ * Cancels a post inside the caller's own workspace. Admin/root users cancelling
+ * someone else's post go through the admin route instead — this one stays
+ * workspace-scoped for everyone, so an admin browsing their own posts list
+ * can't reach across workspaces by accident.
+ */
 export async function cancel(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
-  return ok(reply, await cancelPost(req.auth!.workspaceId, id));
+  return ok(
+    reply,
+    await cancelPost({
+      workspaceId: req.auth!.workspaceId,
+      postId: id,
+      actor: {
+        userId: req.auth!.userId,
+        // Recorded for the audit trail only; it grants nothing here.
+        role: await resolveCallerRole(req),
+      },
+    }),
+  );
+}
+
+/**
+ * Audit label ONLY — never an authorization input. Collapses the three role
+ * tiers onto the legacy vocabulary that `Post.cancelledBy.role` still stores:
+ * platform staff read as "root", a tenant root as "admin", everyone else as
+ * "user". API-key callers have no user behind them and label as "user".
+ *
+ * `assertMembership` normally populates the tiers; the lookup is a fallback so
+ * the audit trail doesn't silently degrade if this handler is ever mounted on a
+ * route that skips it.
+ */
+async function resolveCallerRole(req: FastifyRequest): Promise<UserRole> {
+  const auth = req.auth;
+  if (!auth) return "user";
+  if (auth.platformRole === "root") return "root";
+  if (auth.orgRole === "owner") return "admin";
+  if (!auth.userId) return "user";
+
+  const user = await UserModel.findById(new Types.ObjectId(auth.userId)).select(
+    "platformRole orgRole",
+  );
+  if (user?.platformRole === "root") return "root";
+  if (user?.orgRole === "owner") return "admin";
+  return "user";
 }
 
 export async function approve(req: FastifyRequest, reply: FastifyReply) {

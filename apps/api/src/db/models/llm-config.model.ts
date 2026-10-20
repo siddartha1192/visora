@@ -11,6 +11,13 @@ const llmConfigSchema = new Schema(
     chatModel: { type: String, trim: true },
     imageModel: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
+    /**
+     * null = platform-global config, managed by platform staff and available
+     * to every tenant as the default. Set = an org's own BYOK credential,
+     * managed by that org's owner and preferred over the platform default for
+     * the same provider — see resolveNodeAdapters in orchestration/node-adapters.ts.
+     */
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null, index: true },
   },
   { timestamps: true },
 );

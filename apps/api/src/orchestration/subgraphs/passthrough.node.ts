@@ -17,7 +17,14 @@ export const passthroughNode = defineNode("passthrough", async (state, ctx) => {
   const assetId = state.input.uploadedAssetId;
   if (!assetId) throw new Error("passthrough: uploadedAssetId is required");
 
-  const asset = await AssetModel.findById(new Types.ObjectId(assetId));
+  // Scoped by workspace, not just _id: `uploadedAssetId` comes straight from the
+  // caller's request body, so an unscoped lookup lets one workspace reference —
+  // and publish — another workspace's asset. The message is deliberately identical
+  // for "missing" and "not yours" so it can't be used to probe for existence.
+  const asset = await AssetModel.findOne({
+    _id: new Types.ObjectId(assetId),
+    workspaceId: new Types.ObjectId(state.workspaceId),
+  });
   if (!asset?.s3) throw new Error(`passthrough: asset ${assetId} not found`);
 
   const url = await ctx.services.objectStore.signedUrl(asset.s3.key, 3600);

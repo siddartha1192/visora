@@ -1,58 +1,78 @@
 import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Wand2, Images, Globe, CalendarClock } from "lucide-react";
+import { HeroBackdrop } from "@/components/landing/hero-backdrop";
+import { PillarPipeline } from "@/components/landing/pillar-pipeline";
 
-const PILLARS = [
-  { icon: Sparkles, title: "Generate", desc: "DALL·E 3 from a prompt" },
-  { icon: Wand2, title: "Enhance", desc: "AI edit & inpaint uploads" },
-  { icon: Images, title: "Discover", desc: "Stock from Pexels & Unsplash" },
-  { icon: Globe, title: "Extract", desc: "Scrape visuals from any URL" },
-  { icon: CalendarClock, title: "Schedule", desc: "Publish now or later" },
-];
-
+/**
+ * Marketing hero. Copy renders on the server; the two client children own the
+ * ambient canvas and the pipeline strip. Entrance timings cascade top-down —
+ * badge → headline → subhead → CTAs → rail → cards — via animation-delay only,
+ * so nothing here depends on JS to become visible.
+ */
 export default function Landing() {
   return (
-    <main className="bg-grid relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
+      <HeroBackdrop />
 
       <div className="container relative flex flex-col items-center gap-14 py-24 text-center">
         <div className="space-y-6">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-elevate-xs">
-            <Sparkles className="h-3.5 w-3.5 text-primary" /> Agentic AI · LangGraph orchestration
-          </span>
-          <h1 className="mx-auto max-w-3xl text-balance bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-5xl font-semibold tracking-[-0.03em] text-transparent sm:text-6xl">
-            The enterprise studio for AI visual content
-          </h1>
-          <p className="mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground">
+          <div className="animate-reveal" style={{ animationDelay: "0.1s" }}>
+            <span className="border-beam inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-elevate-xs">
+              <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                <Sparkles className="animate-pulse-dot h-3.5 w-3.5 text-primary" />
+                <span className="animate-ping-ring absolute h-3.5 w-3.5 rounded-full bg-primary/25" />
+              </span>
+              Agentic AI · Orchestrated pipeline
+            </span>
+          </div>
+
+          {/* Entrance lives on the wrapper: .text-sheen owns the h1's
+              `animation` shorthand and an element only runs one of them. */}
+          <div className="animate-reveal" style={{ animationDelay: "0.22s" }}>
+            <h1 className="text-sheen mx-auto max-w-3xl text-balance text-5xl font-semibold tracking-[-0.03em] sm:text-6xl">
+              The enterprise studio for AI visual content
+            </h1>
+          </div>
+
+          <p
+            className="animate-reveal mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground"
+            style={{ animationDelay: "0.38s" }}
+          >
             Orchestrate, generate, enhance, and schedule multi-platform social posts —
             all driven by a pluggable agent graph.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Link href="/login">
-              <Button size="lg">Get started</Button>
+
+          <div
+            className="animate-reveal flex items-center justify-center gap-3 pt-2"
+            style={{ animationDelay: "0.52s" }}
+          >
+            <Link href="/login" className="relative inline-flex">
+              {/* Soft breathing halo behind the primary action. */}
+              <span
+                aria-hidden
+                className="animate-halo pointer-events-none absolute -inset-2 rounded-full bg-primary/25 blur-xl"
+              />
+              <Button
+                size="lg"
+                className="sheen-hover group relative overflow-hidden hover:shadow-ring-primary"
+              >
+                Get started
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 ease-out group-hover:translate-x-1" />
+              </Button>
             </Link>
             <Link href="/posts">
-              <Button size="lg" variant="outline">
+              {/* No sheen here: the white sweep only reads against the cobalt
+                  fill of the primary action, not on a transparent surface. */}
+              <Button size="lg" variant="outline" className="group">
                 View posts
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground" />
               </Button>
             </Link>
           </div>
         </div>
 
-        <div className="grid w-full max-w-4xl grid-cols-2 gap-3 sm:grid-cols-5">
-          {PILLARS.map((p) => (
-            <div
-              key={p.title}
-              className="group rounded-lg border border-border bg-card p-5 text-left shadow-elevate-xs transition-colors duration-150 hover:border-primary/30"
-            >
-              <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 transition-colors duration-150 group-hover:bg-primary/15">
-                <p.icon className="h-4 w-4 text-primary" />
-              </span>
-              <p className="text-sm font-semibold tracking-[-0.01em]">{p.title}</p>
-              <p className="text-xs text-muted-foreground">{p.desc}</p>
-            </div>
-          ))}
-        </div>
+        <PillarPipeline />
       </div>
     </main>
   );

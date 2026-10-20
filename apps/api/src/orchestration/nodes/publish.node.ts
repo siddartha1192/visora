@@ -8,6 +8,8 @@
 import { defineNode } from "../context.js";
 import type { NodeReturn } from "../context.js";
 import { withRetry } from "../../lib/retry.js";
+import { WorkspaceModel } from "../../db/models/index.js";
+import { resolvePublisher } from "../../modules/workspace/publisher-resolver.js";
 
 /**
  * Fan-out publish. For each target we pick the platform-matched variant and
@@ -23,6 +25,10 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
     .filter(Boolean)
     .join("\n\n");
 
+  // Workspaces without a connected social account fall back to the platform
+  // default publisher inside resolvePublisher — see its docstring.
+  const workspace = await WorkspaceModel.findById(state.workspaceId, "socialAccounts").lean();
+
   const results = await Promise.all(
     state.targets.map(async (target) => {
       const variant =
@@ -35,7 +41,9 @@ export const publishNode = defineNode("publish", async (state, ctx) => {
           error: "no variant produced for target",
         };
       }
-      const publisher = ctx.services.publishers[target.platform];
+      const publisher = workspace
+        ? resolvePublisher(workspace, target.platform, ctx.services.publishers)
+        : ctx.services.publishers[target.platform];
       try {
         const res = await withRetry(
           () => publisher.publish({

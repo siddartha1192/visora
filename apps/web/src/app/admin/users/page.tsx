@@ -3,21 +3,43 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type AdminUser } from "@/lib/admin-api";
+import { api } from "@/lib/api";
+import type { WorkspaceRole } from "@visora/shared";
 import { Plus, Trash2, ShieldCheck, Crown, AlertCircle, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Add User modal ────────────────────────────────────────────────────────────
 
-function AddUserModal({ onClose, canGrantAdmin }: { onClose: () => void; canGrantAdmin: boolean }) {
+/**
+ * Users are provisioned INTO a workspace — that membership is what grants
+ * access, so the workspace and role are chosen here rather than a global tier.
+ */
+function AddUserModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"user" | "admin">("user");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [workspaceRole, setWorkspaceRole] = useState<WorkspaceRole>("editor");
   const [error, setError] = useState("");
 
+  // Only workspaces the caller can reach — the server rejects anything else.
+  const { data: workspaces = [] } = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: api.listWorkspaces,
+  });
+
+  const effectiveWorkspaceId = workspaceId || workspaces[0]?.id || "";
+
   const mutation = useMutation({
-    mutationFn: () => adminApi.createUser({ name, email, password, role }),
+    mutationFn: () =>
+      adminApi.createUser({
+        name,
+        email,
+        password,
+        workspaceId: effectiveWorkspaceId,
+        workspaceRole,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       onClose();
@@ -42,19 +64,30 @@ function AddUserModal({ onClose, canGrantAdmin }: { onClose: () => void; canGran
           <Field label="Password">
             <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" className={inputCls} />
           </Field>
-          {canGrantAdmin ? (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={role === "admin"}
-                onChange={(e) => setRole(e.target.checked ? "admin" : "user")}
-                className="h-4 w-4 rounded border border-border accent-primary"
-              />
-              <span className="text-sm">Grant admin access</span>
-            </label>
-          ) : (
-            <p className="text-xs text-muted-foreground">Only root can grant admin access.</p>
-          )}
+          <Field label="Workspace">
+            <select
+              required
+              value={effectiveWorkspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+              className={inputCls}
+            >
+              {workspaces.length === 0 && <option value="">No workspaces available</option>}
+              {workspaces.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Role in this workspace">
+            <select
+              value={workspaceRole}
+              onChange={(e) => setWorkspaceRole(e.target.value as WorkspaceRole)}
+              className={inputCls}
+            >
+              <option value="admin">Admin — manages this workspace and its users</option>
+              <option value="editor">Editor — creates and edits content</option>
+              <option value="viewer">Viewer — read only</option>
+            </select>
+          </Field>
           {error && <p className="flex items-center gap-1.5 text-sm text-destructive"><AlertCircle className="h-3.5 w-3.5" />{error}</p>}
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
@@ -76,7 +109,9 @@ export default function UsersPage() {
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
 
   const { data: me } = useQuery({ queryKey: ["admin-me"], queryFn: adminApi.me });
-  const isRoot = me?.role === "root";
+  // Platform staff and the tenant's owner may manage privileged accounts; a
+  // workspace admin may only manage ordinary members of their own workspaces.
+  const isPrivileged = Boolean(me?.platformRole) || me?.orgRole === "owner";
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -128,9 +163,11 @@ export default function UsersPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {users.map((u) => {
-                  // Non-root admins can only manage plain user accounts —
-                  // matches the server-side rule in admin.controller.ts.
-                  const canManage = isRoot || u.role === "user";
+                  // Privileged accounts (the tenant owner, platform staff) can
+                  // only be managed by platform staff — mirrors the server rule
+                  // in admin.controller.ts so the UI doesn't offer a doomed action.
+                  const isPrivilegedTarget = u.orgRole === "owner" || Boolean(u.platformRole);
+                  const canManage = Boolean(me?.platformRole) || !isPrivilegedTarget;
                   return (
                     <tr key={u.id} className="hover:bg-secondary/20 transition-colors">
                       <td className="px-4 py-3 font-medium">{u.name}</td>
@@ -150,16 +187,22 @@ export default function UsersPage() {
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        {u.role === "root" ? (
+                        {u.platformRole === "root" ? (
                           <span className="flex items-center gap-1 text-amber-500 text-xs font-medium">
-                            <Crown className="h-3.5 w-3.5" /> Root
+                            <Crown className="h-3.5 w-3.5" /> Platform
                           </span>
-                        ) : u.role === "admin" ? (
+                        ) : u.orgRole === "owner" ? (
                           <span className="flex items-center gap-1 text-primary text-xs font-medium">
-                            <ShieldCheck className="h-3.5 w-3.5" /> Admin
+                            <ShieldCheck className="h-3.5 w-3.5" /> Owner
+                          </span>
+                        ) : u.workspaces.some((w) => w.role === "admin") ? (
+                          <span className="text-xs text-muted-foreground">
+                            Workspace admin
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">User</span>
+                          <span className="text-xs text-muted-foreground">
+                            Member{u.workspaceCount > 0 ? ` · ${u.workspaceCount} workspace${u.workspaceCount === 1 ? "" : "s"}` : ""}
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -184,7 +227,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {showAdd && <AddUserModal onClose={() => setShowAdd(false)} canGrantAdmin={isRoot} />}
+      {showAdd && <AddUserModal onClose={() => setShowAdd(false)} />}
 
       {/* Delete confirmation */}
       {confirmDelete && (
