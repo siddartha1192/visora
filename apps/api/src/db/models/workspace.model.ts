@@ -22,8 +22,15 @@ const socialAccountSchema = new Schema(
     platform: { type: String, enum: PLATFORMS, required: true },
     handle: { type: String, required: true },
     externalAccountId: { type: String, required: true },
-    /** Pointer/reference to the secret store entry — never the raw token. */
+    /**
+     * Phase 2 placeholder mechanism: the *name* of an env var holding the
+     * operator's own token. Superseded by encryptedAccessToken for a real
+     * per-workspace connection (see social-oauth.service.ts) — kept for
+     * backward compatibility with any workspace still using the fallback.
+     */
     accessTokenRef: { type: String },
+    /** AES-256-GCM ciphertext (lib/crypto.ts) of a real, customer-owned OAuth token. Never the raw token. */
+    encryptedAccessToken: { type: String },
     tokenExpiresAt: { type: Date },
     status: {
       type: String,

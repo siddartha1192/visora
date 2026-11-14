@@ -3,6 +3,7 @@ import type { Platform } from "@visora/shared";
 import type { Publisher } from "../integrations/interfaces/ports.js";
 import type { ServiceContainer } from "../config/container.js";
 import { resolvePublisher } from "../modules/workspace/publisher-resolver.js";
+import { encryptSecret } from "../lib/crypto.js";
 
 function stubPublisher(platform: Platform): Publisher {
   return { platform, publish: vi.fn() };
@@ -65,6 +66,48 @@ describe("resolvePublisher", () => {
   it("ignores a connected account for a different platform", () => {
     const publisher = resolvePublisher(
       { socialAccounts: [{ platform: "facebook", status: "connected", accessTokenRef: "X" }] },
+      "instagram",
+      fallback,
+    );
+    expect(publisher).toBe(fallback.instagram);
+  });
+
+  it("prefers a real encrypted token over the platform default", () => {
+    const publisher = resolvePublisher(
+      {
+        socialAccounts: [
+          { platform: "instagram", status: "connected", encryptedAccessToken: encryptSecret("real-customer-token") },
+        ],
+      },
+      "instagram",
+      fallback,
+    );
+    expect(publisher).not.toBe(fallback.instagram);
+    expect(publisher.platform).toBe("instagram");
+  });
+
+  it("prefers encryptedAccessToken over accessTokenRef when both are present", () => {
+    process.env.WORKSPACE_TEST_TOKEN = "should-not-be-used";
+    const publisher = resolvePublisher(
+      {
+        socialAccounts: [
+          {
+            platform: "instagram",
+            status: "connected",
+            accessTokenRef: "WORKSPACE_TEST_TOKEN",
+            encryptedAccessToken: encryptSecret("real-customer-token"),
+          },
+        ],
+      },
+      "instagram",
+      fallback,
+    );
+    expect(publisher).not.toBe(fallback.instagram);
+  });
+
+  it("falls back when the stored ciphertext cannot be decrypted", () => {
+    const publisher = resolvePublisher(
+      { socialAccounts: [{ platform: "instagram", status: "connected", encryptedAccessToken: "not-valid-ciphertext" }] },
       "instagram",
       fallback,
     );

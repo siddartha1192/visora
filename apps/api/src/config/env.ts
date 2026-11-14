@@ -59,6 +59,18 @@ const schema = z.object({
 
   LINKEDIN_ACCESS_TOKEN: z.string().optional(),
 
+  // Per-workspace Instagram/Facebook OAuth connect flow. Both are required
+  // once a workspace attempts to connect its own account — see
+  // modules/workspace/social-oauth.service.ts. Get these by registering an
+  // app at developers.facebook.com; the same app already backs the
+  // INSTAGRAM_ACCESS_TOKEN/FACEBOOK_ACCESS_TOKEN above.
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
+  // Encrypts customer OAuth tokens at rest (AES-256-GCM, see lib/crypto.ts).
+  // CHANGE THE DEFAULT IN PRODUCTION — losing or rotating this key makes
+  // every stored token permanently undecryptable; back it up like JWT_SECRET.
+  TOKEN_ENCRYPTION_KEY: z.string().min(32).default("dev-insecure-encryption-key-change-me-please"),
+
   // CORS
   WEB_ORIGIN: z.string().default("http://localhost:3000"),
 });

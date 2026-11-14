@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   PLATFORMS,
@@ -258,6 +258,8 @@ export default function ComposePage() {
 function ComposePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.getMe() });
+  const activeWorkspace = me?.workspaces.find((w) => w.id === me.activeWorkspaceId) ?? me?.workspaces[0];
   const [workflow, setWorkflow] = useState<WorkflowType>("ai_generate");
   const [prompt, setPrompt] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -322,7 +324,15 @@ function ComposePageInner() {
 
   function buildPayload(): CreatePostInput {
     const base = {
-      targets: targets.map((p) => ({ platform: p, accountId: PLACEHOLDER_ACCOUNT })),
+      targets: targets.map((p) => ({
+        platform: p,
+        // A workspace that hasn't connected its own account for this
+        // platform falls back to the operator's default — same behavior as
+        // today, just no longer hardcoded once a real connection exists.
+        accountId:
+          activeWorkspace?.socialAccounts.find((a) => a.platform === p)?.externalAccountId ??
+          PLACEHOLDER_ACCOUNT,
+      })),
       schedule: {
         mode: scheduleMode,
         runAt: scheduleMode === "scheduled" && runAt ? runAt.toISOString() : undefined,

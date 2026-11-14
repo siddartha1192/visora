@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { PLATFORMS, type Platform, type CreatePostInput } from "@visora/shared";
 import { Bot, Zap, Send, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { api, ApiError } from "@/lib/api";
 const PLACEHOLDER_ACCOUNT = "17841480000696385";
 
 export default function AutonomousPage() {
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.getMe() });
+  const activeWorkspace = me?.workspaces.find((w) => w.id === me.activeWorkspaceId) ?? me?.workspaces[0];
   const [brief, setBrief] = useState("");
   const [assetId, setAssetId] = useState<string | null>(null);
   const [targets, setTargets] = useState<Platform[]>([]);
@@ -52,7 +54,12 @@ export default function AutonomousPage() {
         workflow: "autonomous",
         brief,
         uploadedAssetId: assetId ?? undefined,
-        targets: targets.map((p) => ({ platform: p, accountId: PLACEHOLDER_ACCOUNT })),
+        targets: targets.map((p) => ({
+          platform: p,
+          accountId:
+            activeWorkspace?.socialAccounts.find((a) => a.platform === p)?.externalAccountId ??
+            PLACEHOLDER_ACCOUNT,
+        })),
         schedule,
         caption: { generate: true, hashtags: [] },
       } as CreatePostInput;

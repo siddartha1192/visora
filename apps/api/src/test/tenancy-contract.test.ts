@@ -45,6 +45,12 @@ const PUBLIC: ReadonlySet<RouteKey> = new Set<RouteKey>([
   // the caller until the token is validated inside the handler.
   "GET /v1/invites/:token",
   "POST /v1/invites/:token/accept",
+
+  // Meta redirects the browser here directly after the OAuth consent screen
+  // — no bearer token is available at this point. Authorization is the
+  // signed `state` param minted by the (tenant-scoped) connect route below,
+  // verified inside handleCallback.
+  "GET /v1/social/callback",
 ]);
 
 const TENANT_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>([
@@ -68,6 +74,11 @@ const TENANT_SCOPED: ReadonlySet<RouteKey> = new Set<RouteKey>([
   "POST /v1/workspaces/:id/invites",
   "GET /v1/workspaces/:id/invites",
   "DELETE /v1/invites/:invitationId",
+
+  // Social account connections — requireOrgOwner, plus workspaceBelongsToOrg
+  // confirms the target workspace is actually in the caller's own org.
+  "POST /v1/workspaces/:id/social/:platform/connect",
+  "DELETE /v1/workspaces/:id/social/:platform",
 
   // BYOK LLM configs — requireOrgOwner, always filtered to req.auth.organizationId.
   // Distinct from the PLATFORM_GLOBAL /v1/admin/llm-configs below.
