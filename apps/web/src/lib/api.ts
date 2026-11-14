@@ -298,6 +298,16 @@ export const api = {
       body: JSON.stringify({ workspaceId }),
     }),
 
+  // Social account connections (Instagram/Facebook Connect)
+  connectSocialAccount: (workspaceId: string, platform: "instagram" | "facebook") =>
+    request<{ authorizationUrl: string }>(`/workspaces/${workspaceId}/social/${platform}/connect`, {
+      method: "POST",
+    }),
+  disconnectSocialAccount: (workspaceId: string, platform: "instagram" | "facebook") =>
+    request<{ disconnected: string }>(`/workspaces/${workspaceId}/social/${platform}`, {
+      method: "DELETE",
+    }),
+
   // API keys (machine-to-machine) — self-service, scoped to your own workspace
   listApiKeys: () => request<ApiKeyDTO[]>("/api-keys"),
   createApiKey: (label: string, expiresInDays: 30 | 90 | 365 | null) =>

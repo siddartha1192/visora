@@ -4,6 +4,7 @@ import type { ServiceContainer } from "../../config/container.js";
 import { InstagramPublisher } from "../../integrations/publishers/instagram.publisher.js";
 import { FacebookPublisher } from "../../integrations/publishers/facebook.publisher.js";
 import { LinkedInPublisher } from "../../integrations/publishers/linkedin.publisher.js";
+import { decryptSecret } from "../../lib/crypto.js";
 import { logger } from "../../lib/logger.js";
 
 interface WorkspaceSocialAccounts {
@@ -11,23 +12,33 @@ interface WorkspaceSocialAccounts {
     platform: Platform;
     status: "connected" | "expired" | "revoked";
     accessTokenRef?: string | null;
+    encryptedAccessToken?: string | null;
   }> | null;
+}
+
+function buildPublisher(platform: Platform, token: string): Publisher | undefined {
+  switch (platform) {
+    case "instagram":
+      return new InstagramPublisher(token);
+    case "facebook":
+      return new FacebookPublisher(token);
+    case "linkedin":
+      return new LinkedInPublisher(token);
+    default:
+      return undefined;
+  }
 }
 
 /**
  * Resolves the Publisher for one workspace + platform.
  *
- * `Workspace.socialAccounts[]` is the intended source of a tenant's own
- * connected account, but no OAuth connect flow exists yet — there is nowhere
- * for a workspace to acquire its own token. Until that ships, `accessTokenRef`
- * holds the *name* of an environment variable (never the raw token — the
- * schema comment on `socialAccountSchema` is explicit about this), so a
- * connected account today just points back at the same operator credentials
- * `createContainer()` already reads.
- *
- * This makes every call site workspace-aware now, so wiring a real per-tenant
- * OAuth flow later is a change confined to how `socialAccounts[]` gets
- * populated — no publish call site needs to change again.
+ * Prefers a real, customer-owned connection (`encryptedAccessToken`, set by
+ * the Instagram/Facebook Connect flow in social-oauth.service.ts) over the
+ * Phase 2 placeholder mechanism (`accessTokenRef`, an env var name pointing
+ * back at the operator's own token), which itself falls back to the platform
+ * default publisher when neither is present or usable. LinkedIn has no real
+ * connect flow yet, so it only ever resolves via `accessTokenRef` or falls
+ * back — this branch simply never matches for it.
  */
 export function resolvePublisher(
   workspace: WorkspaceSocialAccounts,
@@ -37,8 +48,23 @@ export function resolvePublisher(
   const account = workspace.socialAccounts?.find(
     (a) => a.platform === platform && a.status === "connected",
   );
+  if (!account) return fallback[platform];
 
-  if (!account?.accessTokenRef) {
+  if (account.encryptedAccessToken) {
+    try {
+      const token = decryptSecret(account.encryptedAccessToken);
+      const publisher = buildPublisher(platform, token);
+      if (publisher) return publisher;
+    } catch (err) {
+      logger.error(
+        { platform, err },
+        "failed to decrypt workspace social account token — falling back to the platform default publisher",
+      );
+      return fallback[platform];
+    }
+  }
+
+  if (!account.accessTokenRef) {
     return fallback[platform];
   }
 
@@ -51,14 +77,5 @@ export function resolvePublisher(
     return fallback[platform];
   }
 
-  switch (platform) {
-    case "instagram":
-      return new InstagramPublisher(token);
-    case "facebook":
-      return new FacebookPublisher(token);
-    case "linkedin":
-      return new LinkedInPublisher(token);
-    default:
-      return fallback[platform];
-  }
+  return buildPublisher(platform, token) ?? fallback[platform];
 }

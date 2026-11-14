@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLATFORMS, type ApiKeyDTO } from "@visora/shared";
+import { PLATFORMS, type ApiKeyDTO, type Platform } from "@visora/shared";
 import {
   Card,
   CardContent,
@@ -14,7 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Settings as SettingsIcon, Globe2, KeyRound, X, Copy, Check, Loader2, AlertCircle } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+
+/** Only these two platforms have a real Connect flow — see the tenancy plan's Phase 4. */
+const CONNECTABLE: ReadonlySet<Platform> = new Set(["instagram", "facebook"]);
 
 const inputCls =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-shadow duration-150 placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ring";
@@ -42,15 +46,87 @@ export default function SettingsPage() {
         description="Connect networks and manage programmatic access."
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Social accounts</CardTitle>
-          <CardDescription>
-            Each platform publishes through its own OAuth-backed adapter.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2.5">
-          {PLATFORMS.map((p) => (
+      <Suspense fallback={null}>
+        <SocialAccountsCard />
+      </Suspense>
+      <ApiKeysCard />
+    </div>
+  );
+}
+
+function SocialAccountsCard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null);
+
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.getMe() });
+  const activeWorkspace = me?.workspaces.find((w) => w.id === me.activeWorkspaceId) ?? me?.workspaces[0];
+
+  // Meta's redirect lands back here with ?connected=instagram,facebook or ?error=...
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+    if (connected) {
+      setBanner({ kind: "success", message: `Connected: ${connected.split(",").join(" and ")}` });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      router.replace("/settings");
+    } else if (error) {
+      setBanner({ kind: "error", message: `Connection failed: ${error}` });
+      router.replace("/settings");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const connectMutation = useMutation({
+    mutationFn: (platform: Platform) => {
+      setConnectingPlatform(platform);
+      return api.connectSocialAccount(activeWorkspace!.id, platform as "instagram" | "facebook");
+    },
+    onSuccess: (res) => {
+      window.location.href = res.authorizationUrl;
+    },
+    onError: (e: Error) => {
+      setBanner({ kind: "error", message: e instanceof ApiError ? e.message : "Could not start the connect flow" });
+      setConnectingPlatform(null);
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: (platform: Platform) =>
+      api.disconnectSocialAccount(activeWorkspace!.id, platform as "instagram" | "facebook"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Social accounts</CardTitle>
+        <CardDescription>
+          Each platform publishes through its own OAuth-backed adapter. Connecting Instagram also connects its linked Facebook Page.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        {banner && (
+          <p
+            className={
+              banner.kind === "success"
+                ? "flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
+                : "flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            }
+          >
+            {banner.kind === "error" && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+            {banner.message}
+          </p>
+        )}
+
+        {PLATFORMS.map((p) => {
+          const account = activeWorkspace?.socialAccounts.find((a) => a.platform === p);
+          const connected = Boolean(account);
+          const connectable = CONNECTABLE.has(p);
+
+          return (
             <div
               key={p}
               className="flex items-center justify-between rounded-lg border border-border bg-secondary/10 p-3 transition-colors hover:bg-secondary/20"
@@ -62,20 +138,38 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium capitalize">{p}</p>
                   <Badge className="mt-0.5 border-none bg-transparent px-0 text-muted-foreground/70">
-                    Not connected
+                    {connected ? `Connected as ${account!.handle}` : "Not connected"}
                   </Badge>
                 </div>
               </div>
-              <Button variant="outline" size="sm">
-                Connect
-              </Button>
+              {connected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disconnectMutation.isPending}
+                  onClick={() => disconnectMutation.mutate(p)}
+                >
+                  {disconnectMutation.isPending ? "Disconnecting…" : "Disconnect"}
+                </Button>
+              ) : connectable ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!activeWorkspace || connectMutation.isPending}
+                  onClick={() => connectMutation.mutate(p)}
+                >
+                  {connectMutation.isPending && connectingPlatform === p ? "Redirecting…" : "Connect"}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" disabled title="Not available yet">
+                  Connect
+                </Button>
+              )}
             </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <ApiKeysCard />
-    </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 

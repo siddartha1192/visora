@@ -2,8 +2,10 @@ import "dotenv/config";
 import { connectMongo, disconnectMongo } from "./db/connection.js";
 import { logger } from "./lib/logger.js";
 import { startPostWorker, reconcileScheduledPosts } from "./queue/post-worker.js";
+import { checkAndMarkExpiredTokens } from "./modules/workspace/social-oauth.service.js";
 
 const RECONCILE_INTERVAL_MS = 5 * 60_000;
+const SOCIAL_TOKEN_CHECK_INTERVAL_MS = 24 * 60 * 60_000;
 
 /**
  * Worker process entrypoint — runs SEPARATELY from the API. Owns all LangGraph
@@ -27,9 +29,23 @@ async function main() {
     );
   }, RECONCILE_INTERVAL_MS);
 
+  // Daily sweep marking any connected Instagram/Facebook account whose token
+  // Meta has invalidated (customer revoked access, Page removed, etc.) as
+  // "expired" — there is no silent refresh for these tokens, see
+  // checkAndMarkExpiredTokens's docstring. This just stops the fallback
+  // publisher from being a surprise; reconnecting is still on the customer.
+  const socialTokenCheckTimer = setInterval(() => {
+    checkAndMarkExpiredTokens()
+      .then(({ checked, expired }) => {
+        if (expired > 0) logger.warn({ checked, expired }, "social account token check found expired tokens");
+      })
+      .catch((err) => logger.error({ err }, "periodic social account token check failed"));
+  }, SOCIAL_TOKEN_CHECK_INTERVAL_MS);
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "worker shutting down");
     clearInterval(reconcileTimer);
+    clearInterval(socialTokenCheckTimer);
     await worker.close();
     await disconnectMongo();
     process.exit(0);

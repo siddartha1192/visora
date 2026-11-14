@@ -101,6 +101,15 @@ export interface OrganizationDTO {
   createdAt: string;
 }
 
+/** A connected social account, presentation-only — never the token. */
+export interface SocialAccountDTO {
+  id: string;
+  platform: Platform;
+  handle: string;
+  externalAccountId: string;
+  status: "connected" | "expired" | "revoked";
+}
+
 /** A workspace (brand/product) within an organization. */
 export interface WorkspaceDTO {
   id: string;
@@ -109,6 +118,8 @@ export interface WorkspaceDTO {
   ownerId: string | null;
   /** Present only when the caller's own membership role is relevant. */
   myRole?: WorkspaceRole;
+  /** Only accounts with status "connected" — the Settings UI treats absence as "Not connected". */
+  socialAccounts: SocialAccountDTO[];
   createdAt: string;
 }
 
@@ -134,14 +145,6 @@ export interface UserDTO {
   workspaces: WorkspaceMembership[];
   defaultWorkspaceId?: string;
   createdAt: string;
-}
-
-export interface SocialAccountDTO {
-  id: string;
-  platform: Platform;
-  handle: string;
-  externalAccountId: string;
-  status: "connected" | "expired" | "revoked";
 }
 
 export interface AuthTokens {

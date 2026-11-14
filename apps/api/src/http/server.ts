@@ -52,6 +52,7 @@ export async function buildServer(): Promise<FastifyInstance> {
           { name: "logs", description: "Pipeline execution logs — real-time node events, status, and SSE streaming" },
           { name: "workspaces", description: "Workspaces — the brands/products inside your organization" },
           { name: "invites", description: "Self-serve email invites onto a workspace" },
+          { name: "social", description: "Instagram/Facebook Connect — links a workspace to its own social account" },
           { name: "llm-configs", description: "Bring-your-own-key LLM configs, scoped to your own organization" },
           { name: "admin", description: "Organization admin — users and content, scoped to your own tenant" },
           { name: "platform", description: "Platform operator only — tenant provisioning and shared infrastructure" },

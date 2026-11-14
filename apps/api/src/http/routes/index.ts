@@ -13,6 +13,7 @@ import * as platform from "../controllers/platform.controller.js";
 import * as invitations from "../controllers/invitation.controller.js";
 import * as orgLlmConfigs from "../controllers/llm-config.controller.js";
 import * as signup from "../controllers/signup.controller.js";
+import * as socialOAuth from "../controllers/social-oauth.controller.js";
 
 const bearer = [{ bearerAuth: [] }];
 
@@ -152,6 +153,32 @@ export async function registerRoutes(app: FastifyInstance) {
       }, invitations.acceptInvite);
     },
     { prefix: "/v1/invites" },
+  );
+
+  // ── Public social OAuth callback ──────────────────────────────────────────
+  // Meta redirects the browser here directly after the consent screen — no
+  // bearer token is available at this point. Authorization is the signed
+  // `state` param minted by POST /workspaces/:id/social/:platform/connect
+  // (an authenticated route below), verified inside handleCallback.
+  app.register(
+    async (r) => {
+      r.get("/callback", {
+        schema: {
+          tags: ["social"],
+          summary: "Instagram/Facebook OAuth callback",
+          description: "Public — Meta redirects here after the consent screen. Verifies the signed state param, exchanges the code for tokens, and redirects the browser back to the web app's Settings page.",
+          querystring: {
+            type: "object",
+            properties: {
+              code: { type: "string" },
+              state: { type: "string" },
+              error: { type: "string" },
+            },
+          },
+        },
+      }, socialOAuth.callback);
+    },
+    { prefix: "/v1/social" },
   );
 
   // ── Authenticated API surface (JWT or API key) ────────────────────────────
@@ -309,6 +336,45 @@ export async function registerRoutes(app: FastifyInstance) {
           },
         },
       }, invitations.revokeInvite);
+
+      // ── Social account connections (organization owner only) ────────────
+      // Connecting/disconnecting is an org-owner-level action, same tier as
+      // workspace creation — a workspace admin cannot change what account a
+      // workspace publishes through.
+      r.post("/workspaces/:id/social/:platform/connect", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["social"],
+          summary: "Start the Instagram/Facebook connect flow for a workspace",
+          description: "Returns a Meta OAuth URL to redirect the browser to. Connecting Instagram also connects the linked Facebook Page (and vice versa) in the same flow.",
+          security: bearer,
+          params: {
+            type: "object",
+            required: ["id", "platform"],
+            properties: {
+              id: { type: "string", pattern: "^[a-f0-9]{24}$" },
+              platform: { type: "string", enum: ["instagram", "facebook"] },
+            },
+          },
+        },
+      }, socialOAuth.connect);
+
+      r.delete("/workspaces/:id/social/:platform", {
+        preHandler: requireOrgOwner,
+        schema: {
+          tags: ["social"],
+          summary: "Disconnect a workspace's social account",
+          security: bearer,
+          params: {
+            type: "object",
+            required: ["id", "platform"],
+            properties: {
+              id: { type: "string", pattern: "^[a-f0-9]{24}$" },
+              platform: { type: "string", enum: ["instagram", "facebook"] },
+            },
+          },
+        },
+      }, socialOAuth.disconnect);
 
       // ── BYOK LLM configs (organization owner only) ──────────────────────
       // Distinct from the platform-global /admin/llm-configs below: these are

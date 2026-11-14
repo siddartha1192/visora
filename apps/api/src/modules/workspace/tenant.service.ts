@@ -32,6 +32,13 @@ export function toWorkspaceDTO(
     organizationId?: Types.ObjectId | null;
     name: string;
     ownerId?: Types.ObjectId | null;
+    socialAccounts?: Array<{
+      _id?: Types.ObjectId;
+      platform: string;
+      handle: string;
+      externalAccountId: string;
+      status: string;
+    }> | null;
     createdAt?: Date;
   },
   myRole?: string,
@@ -42,6 +49,17 @@ export function toWorkspaceDTO(
     name: ws.name,
     ownerId: ws.ownerId?.toString() ?? null,
     ...(myRole ? { myRole: myRole as WorkspaceDTO["myRole"] } : {}),
+    // Never include the token — only what the Settings UI needs to render
+    // connection status.
+    socialAccounts: (ws.socialAccounts ?? [])
+      .filter((a) => a.status === "connected")
+      .map((a) => ({
+        id: a._id?.toString() ?? "",
+        platform: a.platform as WorkspaceDTO["socialAccounts"][number]["platform"],
+        handle: a.handle,
+        externalAccountId: a.externalAccountId,
+        status: a.status as WorkspaceDTO["socialAccounts"][number]["status"],
+      })),
     createdAt: (ws.createdAt ?? new Date()).toISOString(),
   };
 }

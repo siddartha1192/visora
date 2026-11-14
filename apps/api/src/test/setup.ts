@@ -11,6 +11,11 @@ process.env.NODE_ENV = "test";
 process.env.MONGODB_URI = uri;
 process.env.JWT_SECRET = "test-jwt-secret-not-for-production-use";
 process.env.WEB_ORIGIN = "http://localhost:3000";
+// Lets social-oauth.test.ts build a real authorization URL without a live
+// Meta app; no test ever performs a real code exchange (network calls to
+// graph.facebook.com are simply never reached by any current test).
+process.env.META_APP_ID = "test-meta-app-id";
+process.env.META_APP_SECRET = "test-meta-app-secret";
 // "silent" isn't in the env schema's LOG_LEVEL enum (fatal|error|warn|info|
 // debug|trace) — "fatal" is the quietest legal value and keeps test output
 // readable without changing the app's own validation.
