@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { env } from "../../config/env.js";
 import { ProviderError } from "../../lib/errors.js";
 import type {
   EditImageParams,
@@ -24,7 +25,7 @@ function extractImagePart(
 
 /**
  * Implements ImageGenerator using Gemini Flash image generation
- * (e.g. gemini-2.0-flash-preview-image-generation).
+ * (default from GEMINI_IMAGE_MODEL).
  * Supports both text→image (generate) and image+instruction→image (edit).
  */
 export class GeminiImageGenerator implements ImageGenerator {
@@ -34,7 +35,7 @@ export class GeminiImageGenerator implements ImageGenerator {
 
   constructor(opts: { apiKey: string; imageModel?: string }) {
     this.client = new GoogleGenerativeAI(opts.apiKey);
-    this.imageModel = opts.imageModel ?? "gemini-2.0-flash-preview-image-generation";
+    this.imageModel = opts.imageModel ?? env.GEMINI_IMAGE_MODEL;
   }
 
   async generate(params: GenerateImageParams): Promise<ImageResult> {
@@ -122,7 +123,7 @@ export class GeminiImageGenerator implements ImageGenerator {
 
 /**
  * Implements LanguageModel using Gemini text models
- * (e.g. gemini-1.5-flash, gemini-2.0-flash).
+ * (default from GEMINI_TEXT_MODEL).
  */
 export class GeminiLanguageModel implements LanguageModel {
   readonly name = "google";
@@ -131,7 +132,7 @@ export class GeminiLanguageModel implements LanguageModel {
 
   constructor(opts: { apiKey: string; chatModel?: string }) {
     this.client = new GoogleGenerativeAI(opts.apiKey);
-    this.chatModel = opts.chatModel ?? "gemini-1.5-flash";
+    this.chatModel = opts.chatModel ?? env.GEMINI_TEXT_MODEL;
   }
 
   async complete(args: { system: string; user: string }): Promise<{

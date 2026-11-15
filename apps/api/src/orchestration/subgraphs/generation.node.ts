@@ -1,9 +1,9 @@
 /**
  * FILE: generation.node.ts
- * Workflow 2 — generates a brand-new image from a text prompt using DALL·E.
+ * Workflow 2 — generates a brand-new image from a text prompt using the image model.
  * Mini-pipeline inside this node:
  *  1. GPT refines the user's raw prompt into a more vivid image-generation prompt (best-effort)
- *  2. DALL·E generates the image
+ *  2. The image model generates the image
  *  3. Result is stored to S3 + recorded as an Asset in the database
  * Falls back to the original prompt if the GPT refinement step fails.
  */
@@ -13,7 +13,7 @@ import { moderateTexts, ContentPolicyViolationError, HIGH_RISK_KEYWORDS } from "
 
 /**
  * Workflow 2 — Pure AI Generation. Internally a mini-pipeline:
- *   promptRefine (LLM) -> DALL·E 3 generate -> store to object store + Asset.
+ *   promptRefine (LLM) -> image generate -> store to object store + Asset.
  * The refined prompt step is best-effort; failure falls back to the raw prompt.
  */
 export const generationNode = defineNode("generation", async (state, ctx) => {

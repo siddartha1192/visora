@@ -15,7 +15,7 @@ const LLM_NODES: Array<{
 }> = [
   { key: "planner",     label: "Planner",     description: "Resolves workflow and platform targets from brief",    icon: Brain,    type: "text" },
   { key: "caption",     label: "Caption",     description: "Writes captions and hashtags for the post",           icon: Type,     type: "text" },
-  { key: "generation",  label: "Generation",  description: "Generates images from a text prompt (DALL-E)",        icon: Wand2,    type: "image" },
+  { key: "generation",  label: "Generation",  description: "Generates images from a text prompt (AI image model)",        icon: Wand2,    type: "image" },
   { key: "enhancement", label: "Enhancement", description: "Edits and enhances existing images via AI",           icon: Sparkles, type: "image" },
 ];
 

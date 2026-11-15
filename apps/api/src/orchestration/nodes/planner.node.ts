@@ -21,7 +21,7 @@ const PLACEHOLDER_ACCOUNT = "000000000000000000000000";
 
 interface PlannerDecision {
   workflow: "ai_enhance" | "passthrough" | "stock_discovery" | "ai_generate" | "scrape";
-  /** DALL-E modification instructions — only when workflow is "ai_enhance". */
+  /** image-edit modification instructions — only when workflow is "ai_enhance". */
   instructions?: string | null;
   /** Search keywords (stock) or generation prompt (ai_generate). */
   prompt?: string | null;
@@ -31,7 +31,7 @@ interface PlannerDecision {
   context?: string | null;
   /** Enhance the downloaded stock photo — only when workflow is "stock_discovery". */
   enhanceAfterStock?: boolean | null;
-  /** DALL-E editing instructions for post-download enhancement. */
+  /** image-editing instructions for post-download enhancement. */
   enhanceInstructions?: string | null;
   /** Platforms extracted from the brief. null/empty = keep the user's selection. */
   platforms?: Array<"instagram" | "facebook" | "x" | "linkedin"> | null;
@@ -76,17 +76,17 @@ export const plannerNode = defineNode("planner", async (state, ctx) => {
     ? `You are an AI content strategist for a social media scheduling platform.
 The user has uploaded an image. Decide how to use it based on their brief:
 
-- "ai_enhance": MODIFY the uploaded image using AI (DALL-E edit). Choose this when the brief implies improving, retouching, stylizing, color-grading, or transforming the image — even if the user does not say "enhance" explicitly. If the image likely needs work to match the desired look, choose ai_enhance.
+- "ai_enhance": MODIFY the uploaded image using AI (image edit). Choose this when the brief implies improving, retouching, stylizing, color-grading, or transforming the image — even if the user does not say "enhance" explicitly. If the image likely needs work to match the desired look, choose ai_enhance.
 - "passthrough": POST the image as-is, no AI modification. Choose this only when the brief clearly says the image is ready and just needs posting.
 
-When workflow is "ai_enhance", write instructions: concise, specific DALL-E editing instructions that will achieve the look described in the brief.
+When workflow is "ai_enhance", write instructions: concise, specific image-editing instructions that will achieve the look described in the brief.
 ${PLATFORM_SECTION}
 ${buildScheduleSection(nowUtc)}
 ${CONTENT_POLICY_SECTION}
 
 Return JSON with:
 - workflow: "ai_enhance" | "passthrough"
-- instructions: DALL-E editing instructions string (required when workflow is "ai_enhance")
+- instructions: image-editing instructions string (required when workflow is "ai_enhance")
 - platforms: array of platform strings (or empty array if not mentioned)
 - scheduleMode: "instant" | "scheduled"
 - scheduledAt: ISO 8601 UTC string or null
@@ -95,25 +95,25 @@ Return JSON with:
 No image was uploaded. Decide how to source the image from the brief:
 
 - "stock_discovery": find a real photograph from stock libraries. Use for people, nature, lifestyle, business, food, travel, products.
-- "ai_generate": generate a new image with DALL-E. Use for conceptual, artistic, branded, surreal, or highly specific visuals that real photos cannot deliver.
+- "ai_generate": generate a new image with the AI image model. Use for conceptual, artistic, branded, surreal, or highly specific visuals that real photos cannot deliver.
 - "scrape": extract an image from a URL. ONLY when the brief explicitly mentions a URL.
 
 Default to "stock_discovery" when in doubt — it is faster and cheaper.
 
 Enhancement for stock_discovery:
 - Set enhanceAfterStock: true when the brief implies a specific visual style, color grade, or mood that a raw stock photo likely won't match (e.g. "warm golden hour feel", "dark moody brand", "cinematic look").
-- When enhanceAfterStock is true, write enhanceInstructions: DALL-E editing instructions to apply that look.
+- When enhanceAfterStock is true, write enhanceInstructions: image-editing instructions to apply that look.
 ${PLATFORM_SECTION}
 ${buildScheduleSection(nowUtc)}
 ${CONTENT_POLICY_SECTION}
 
 Return JSON with:
 - workflow: "stock_discovery" | "ai_generate" | "scrape"
-- prompt: for stock_discovery → 4-8 search keywords; for ai_generate → detailed DALL-E image prompt
+- prompt: for stock_discovery → 4-8 search keywords; for ai_generate → detailed image-generation prompt
 - sourceUrl: the URL (scrape only)
 - context: image selector hint (scrape only)
 - enhanceAfterStock: true | false
-- enhanceInstructions: DALL-E editing instructions (only when enhanceAfterStock is true)
+- enhanceInstructions: image-editing instructions (only when enhanceAfterStock is true)
 - platforms: array of platform strings (or empty array if not mentioned)
 - scheduleMode: "instant" | "scheduled"
 - scheduledAt: ISO 8601 UTC string or null

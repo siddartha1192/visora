@@ -5,7 +5,7 @@
  * How it works:
  *  - Each run is identified by a thread_id (= jobId)
  *  - If the worker crashes mid-run, the next retry resumes from the last saved node
- *    instead of re-running (and re-charging) earlier provider calls like DALL·E or Cloudinary
+ *    instead of re-running (and re-charging) earlier provider calls like image generation or Cloudinary
  *
  * Degrades gracefully: if the checkpoint package isn't installed, returns undefined
  * and the pipeline runs normally — just without the ability to resume after a crash.

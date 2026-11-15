@@ -449,7 +449,7 @@ export async function registerRoutes(app: FastifyInstance) {
 | Value | Description |
 |-------|-------------|
 | \`passthrough\` | Upload an image and post it as-is |
-| \`ai_generate\` | Generate an image with DALL·E 3 from a prompt |
+| \`ai_generate\` | Generate an image with the AI image model from a prompt |
 | \`ai_enhance\` | Upload an image, apply AI edits, then post |
 | \`stock_discovery\` | Search Pexels/Unsplash, optionally AI-enhance |
 | \`scrape\` | Extract an image from a URL |
@@ -468,13 +468,13 @@ Returns **202 Accepted** immediately. Track status via \`GET /v1/posts/:id\`.`,
               },
               brief: { type: "string", maxLength: 2000, description: "Free-form brief — **required** for `autonomous` workflow" },
               prompt: { type: "string", description: "Image prompt for `ai_generate`; search keywords for `stock_discovery`" },
-              instructions: { type: "string", description: "DALL·E editing instructions for `ai_enhance`" },
+              instructions: { type: "string", description: "Image-editing instructions for `ai_enhance`" },
               sourceUrl: { type: "string", description: "URL to scrape — **required** for `scrape` workflow" },
               context: { type: "string", description: "Image selector hint for `scrape` (e.g. 'the hero product photo')" },
               uploadedAssetId: { type: "string", description: "Asset ID from `POST /v1/assets` — required for `passthrough` and `ai_enhance`" },
               stockSource: { type: "string", enum: ["auto", "pexels", "unsplash"], default: "auto" },
               enhanceAfterStock: { type: "boolean", default: false, description: "Run AI enhancement after stock photo download" },
-              enhanceInstructions: { type: "string", description: "DALL·E instructions for post-stock enhancement" },
+              enhanceInstructions: { type: "string", description: "Image-editing instructions for post-stock enhancement" },
               targets: {
                 type: "array",
                 minItems: 0,

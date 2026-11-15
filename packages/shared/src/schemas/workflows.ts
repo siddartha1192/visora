@@ -72,7 +72,7 @@ export const autonomousInputSchema = z.object({
   brief: z.string().min(10).max(2000),
   /**
    * Optional: an asset already uploaded via the assets endpoint.
-   * When present the planner can route to "ai_enhance" (modify it with DALL-E)
+   * When present the planner can route to "ai_enhance" (modify it with the AI image model)
    * or "passthrough" (post it as-is). Without this, only stock/generate/scrape are available.
    */
   uploadedAssetId: objectIdSchema.optional(),

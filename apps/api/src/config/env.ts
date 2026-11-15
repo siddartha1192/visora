@@ -40,8 +40,15 @@ const schema = z.object({
 
   // AI / media providers
   OPENAI_API_KEY: z.string().optional(),
-  OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
+  // gpt-image-1 / dall-e-* are retired; gpt-image-2 retires Feb 2027 (per third-party
+  // trackers — verify). Per-node overrides live in the admin LlmConfig `imageModel`.
+  OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2.6-flare"),
+  // gpt-image-* only. 2.6 bills more output tokens at low/medium, so keep this explicit.
+  OPENAI_IMAGE_QUALITY: z.enum(["low", "medium", "high", "auto"]).default("medium"),
   OPENAI_TEXT_MODEL: z.string().default("gpt-4o-mini"),
+  // Google Gemini defaults (used when a node is assigned a Google LlmConfig without models).
+  GEMINI_IMAGE_MODEL: z.string().default("gemini-2.5-flash-image"),
+  GEMINI_TEXT_MODEL: z.string().default("gemini-2.5-flash"),
 
   CLOUDINARY_URL: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
