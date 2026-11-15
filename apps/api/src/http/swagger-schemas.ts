@@ -198,7 +198,7 @@ export function registerSchemas(app: FastifyInstance) {
       origin: {
         type: "object",
         properties: {
-          source: { type: "string", enum: ["user", "dalle3", "pexels", "unsplash", "scrape"] },
+          source: { type: "string", enum: ["user", "ai", "pexels", "unsplash", "scrape"] },
           sourceUrl: { type: "string" },
           prompt: { type: "string" },
         },

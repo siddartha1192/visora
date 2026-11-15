@@ -21,7 +21,8 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
   let keywords = prompt.split(/\s+/).filter((w) => w.length > 3).slice(0, 5);
   let llmUsage;
   try {
-    const { value, usage } = await ctx.services.languageModel.completeJson<{
+    const lm = ctx.nodeAdapters?.planner?.languageModel ?? ctx.services.languageModel;
+    const { value, usage } = await lm.completeJson<{
       keywords: string[];
     }>({
       system: "Extract 3-6 concise stock-photo search keywords from the user's idea.",
@@ -95,7 +96,7 @@ export const stockNode = defineNode("stock", async (state, ctx) => {
     finalBytes = enhanced.bytes;
     finalMime = enhanced.mime;
     finalKind = "enhanced";
-    finalSource = "dalle3";
+    finalSource = "ai";
     enhanceUsage = enhanced.usage;
   }
 

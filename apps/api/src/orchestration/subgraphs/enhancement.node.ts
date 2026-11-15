@@ -2,7 +2,7 @@
  * FILE: enhancement.node.ts
  * Workflow 3 — modifies an existing uploaded image using AI.
  * The user provides an image + written instructions (e.g. "make the sky purple").
- * This node fetches the original image bytes from S3, sends them to DALL·E's edit
+ * This node fetches the original image bytes from S3, sends them to the image model's edit endpoint
  * endpoint with the instructions, then stores the modified result as a new "enhanced" asset.
  */
 import { Types } from "mongoose";
@@ -13,7 +13,7 @@ import { storeImageAsset } from "../asset-helper.js";
 /**
  * Workflow 3 — AI Enhancement / Modification. Loads the user's source image,
  * applies the modification instructions via the ImageGenerator.edit port
- * (DALL·E edit / inpaint), then stores the result as a new "enhanced" asset.
+ * (image edit / inpaint), then stores the result as a new "enhanced" asset.
  */
 export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
   const assetId = state.input.uploadedAssetId;
@@ -49,7 +49,7 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
     width: edited.width,
     height: edited.height,
     kind: "enhanced",
-    source: "dalle3",
+    source: "ai",
     origin: { prompt: instructions, sourceUrl: source.s3.key },
   });
 

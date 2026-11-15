@@ -15,7 +15,7 @@ five image workflows behind both a polished web studio and a secured REST API.
 | # | Workflow | Input | Agent path |
 |---|----------|-------|------------|
 | 1 | **Direct Pass-Through** | uploaded photo | passthrough → optimize → publish |
-| 2 | **Pure AI Generation** | text prompt | refine → DALL·E 3 → optimize → publish |
+| 2 | **Pure AI Generation** | text prompt | refine → AI image model → optimize → publish |
 | 3 | **AI Enhancement** | image + instructions | edit/inpaint → optimize → publish |
 | 4 | **Stock Discovery** | prompt | keyword-extract → Pexels/Unsplash → select → optimize → publish |
 | 5 | **Web Scraper** | URL + context | render(Playwright) → extract → LLM-pick → optimize → publish |
@@ -133,7 +133,7 @@ swaps stubs for real adapters automatically:
 
 | Capability | Env | Adapter |
 |---|---|---|
-| Image gen/edit | `OPENAI_API_KEY` | DALL·E 3 |
+| Image gen/edit | `OPENAI_API_KEY` | OpenAI gpt-image-* (`OPENAI_IMAGE_MODEL`) |
 | Optimize/resize | `CLOUDINARY_URL` | Cloudinary |
 | Object storage | `AWS_ACCESS_KEY_ID` / `…SECRET` | S3 (or localstack) |
 | Stock | `PEXELS_API_KEY`, `UNSPLASH_ACCESS_KEY` | Pexels / Unsplash |

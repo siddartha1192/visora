@@ -56,9 +56,6 @@ importers:
       '@langchain/langgraph-checkpoint-mongodb':
         specifier: ^0.0.3
         version: 0.0.3(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76))))
-      '@langchain/openai':
-        specifier: ^0.3.0
-        version: 0.3.17(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76)))
       '@visora/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -729,12 +726,6 @@ packages:
     peerDependenciesMeta:
       zod-to-json-schema:
         optional: true
-
-  '@langchain/openai@0.3.17':
-    resolution: {integrity: sha512-uw4po32OKptVjq+CYHrumgbfh4NuD7LqyE+ZgqY9I/LrLc6bHLMc+sisHmI17vgek0K/yqtarI0alPJbzrwyag==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      '@langchain/core': '>=0.3.29 <0.4.0'
 
   '@lukeed/ms@2.0.2':
     resolution: {integrity: sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA==}
@@ -3550,17 +3541,6 @@ snapshots:
     transitivePeerDependencies:
       - react
       - react-dom
-
-  '@langchain/openai@0.3.17(@langchain/core@0.3.80(openai@4.104.0(zod@3.25.76)))':
-    dependencies:
-      '@langchain/core': 0.3.80(openai@4.104.0(zod@3.25.76))
-      js-tiktoken: 1.0.21
-      openai: 4.104.0(zod@3.25.76)
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
 
   '@lukeed/ms@2.0.2': {}
 

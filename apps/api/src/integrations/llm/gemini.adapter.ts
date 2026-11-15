@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { env } from "../../config/env.js";
 import { ProviderError } from "../../lib/errors.js";
 import type {
   EditImageParams,
@@ -24,7 +25,7 @@ function extractImagePart(
 
 /**
  * Implements ImageGenerator using Gemini Flash image generation
- * (e.g. gemini-2.0-flash-preview-image-generation).
+ * (default from GEMINI_IMAGE_MODEL).
  * Supports both text→image (generate) and image+instruction→image (edit).
  */
 export class GeminiImageGenerator implements ImageGenerator {
@@ -34,7 +35,7 @@ export class GeminiImageGenerator implements ImageGenerator {
 
   constructor(opts: { apiKey: string; imageModel?: string }) {
     this.client = new GoogleGenerativeAI(opts.apiKey);
-    this.imageModel = opts.imageModel ?? "gemini-2.0-flash-preview-image-generation";
+    this.imageModel = opts.imageModel ?? env.GEMINI_IMAGE_MODEL;
   }
 
   async generate(params: GenerateImageParams): Promise<ImageResult> {
@@ -122,7 +123,7 @@ export class GeminiImageGenerator implements ImageGenerator {
 
 /**
  * Implements LanguageModel using Gemini text models
- * (e.g. gemini-1.5-flash, gemini-2.0-flash).
+ * (default from GEMINI_TEXT_MODEL).
  */
 export class GeminiLanguageModel implements LanguageModel {
   readonly name = "google";
@@ -131,17 +132,25 @@ export class GeminiLanguageModel implements LanguageModel {
 
   constructor(opts: { apiKey: string; chatModel?: string }) {
     this.client = new GoogleGenerativeAI(opts.apiKey);
-    this.chatModel = opts.chatModel ?? "gemini-1.5-flash";
+    this.chatModel = opts.chatModel ?? env.GEMINI_TEXT_MODEL;
   }
 
   async complete(args: { system: string; user: string }): Promise<{
     text: string;
     usage: UsageMeta;
   }> {
+    return this.chat(args, false);
+  }
+
+  private async chat(
+    args: { system: string; user: string },
+    json: boolean,
+  ): Promise<{ text: string; usage: UsageMeta }> {
     try {
       const model = this.client.getGenerativeModel({
         model: this.chatModel,
         systemInstruction: args.system,
+        ...(json ? { generationConfig: { responseMimeType: "application/json" } } : {}),
       });
       const result = await model.generateContent(args.user);
       return {
@@ -163,10 +172,13 @@ export class GeminiLanguageModel implements LanguageModel {
     user: string;
     schemaHint: string;
   }): Promise<{ value: T; usage: UsageMeta }> {
-    const { text, usage } = await this.complete({
-      system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
-      user: args.user,
-    });
+    const { text, usage } = await this.chat(
+      {
+        system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
+        user: args.user,
+      },
+      true,
+    );
     try {
       const cleaned = text.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
       return { value: JSON.parse(cleaned) as T, usage };

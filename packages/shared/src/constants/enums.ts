@@ -70,7 +70,7 @@ export type AssetKind = (typeof ASSET_KINDS)[number];
 
 export const ASSET_SOURCES = [
   "user",
-  "dalle3",
+  "ai",
   "pexels",
   "unsplash",
   "scrape",

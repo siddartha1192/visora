@@ -56,7 +56,8 @@ export default function SignupPage() {
         card: {
           number: cardNumber,
           expMonth: Number(expMonth),
-          expYear: Number(expYear),
+          // Accept "30" / "030" as 2030; the API requires a four-digit year.
+          expYear: Number(expYear) < 100 ? 2000 + Number(expYear) : Number(expYear),
           cvc,
         },
       });

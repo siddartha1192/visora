@@ -56,7 +56,6 @@ const WORKFLOW_COLORS: Record<string, string> = {
 
 const PROVIDER_COLORS: Record<string, string> = {
   openai:    "bg-emerald-500/15 text-emerald-400",
-  anthropic: "bg-orange-500/15 text-orange-400",
   google:    "bg-blue-500/15 text-blue-400",
 };
 

@@ -7,8 +7,8 @@
  *
  * Current workflows:
  *  - passthrough     — use an image the user already uploaded (no AI cost)
- *  - ai_generate     — generate a new image from a prompt using DALL·E
- *  - ai_enhance      — edit/modify an existing image using DALL·E
+ *  - ai_generate     — generate a new image from a prompt using the image model
+ *  - ai_enhance      — edit/modify an existing image using the image model
  *  - stock_discovery — search Pexels/Unsplash for a matching stock photo
  *  - scrape          — extract the best image from a web page URL
  *

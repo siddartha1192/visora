@@ -23,9 +23,13 @@ export interface UsageMeta {
   requestId?: string;
 }
 
+export type ImageQuality = "low" | "medium" | "high" | "auto";
+
 export interface GenerateImageParams {
   prompt: string;
   size?: "1024x1024" | "1792x1024" | "1024x1792";
+  /** gpt-image-* only; overrides the adapter default (OPENAI_IMAGE_QUALITY). */
+  quality?: ImageQuality;
 }
 
 export interface EditImageParams {
@@ -35,6 +39,8 @@ export interface EditImageParams {
   instructions: string;
   /** Optional mask for inpainting. */
   mask?: Buffer;
+  /** gpt-image-* only; overrides the adapter default (OPENAI_IMAGE_QUALITY). */
+  quality?: ImageQuality;
 }
 
 export interface ImageResult {
@@ -46,7 +52,7 @@ export interface ImageResult {
   usage: UsageMeta;
 }
 
-/** Text-to-image + image editing (DALL·E 3 by default). */
+/** Text-to-image + image editing (OpenAI gpt-image-* by default). */
 export interface ImageGenerator {
   readonly name: string;
   generate(params: GenerateImageParams): Promise<ImageResult>;

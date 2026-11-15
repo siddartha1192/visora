@@ -4,6 +4,7 @@
  * effect on the next run without requiring an API restart.
  */
 import { Types } from "mongoose";
+import { decryptSecret } from "../lib/crypto.js";
 import { NodeConfigModel, LlmConfigModel } from "../db/models/index.js";
 import {
   OpenAILanguageModel,
@@ -111,7 +112,7 @@ export async function resolveNodeAdapters(organizationId?: Types.ObjectId): Prom
     const cfg = orgConfigByProvider.get(platformCfg.provider) ?? platformCfg;
     result[node] = buildAdapters(
       cfg.provider,
-      cfg.apiKey,
+      decryptSecret(cfg.apiKey),
       cfg.chatModel ?? undefined,
       cfg.imageModel ?? undefined,
       node,

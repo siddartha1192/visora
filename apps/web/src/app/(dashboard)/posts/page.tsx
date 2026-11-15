@@ -38,12 +38,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type AssetSource = "user" | "dalle3" | "pexels" | "unsplash" | "scrape";
+type AssetSource = "user" | "ai" | "pexels" | "unsplash" | "scrape";
 
 const SOURCE_META: Record<string, { label: string; className: string }> = {
   user:            { label: "Upload",       className: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
-  dalle3_generate: { label: "AI Generated", className: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
-  dalle3_enhance:  { label: "AI Enhanced",  className: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
+  ai_generate: { label: "AI Generated", className: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
+  ai_enhance:  { label: "AI Enhanced",  className: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
   pexels:          { label: "Pexels",       className: "bg-green-500/20 text-green-300 border-green-500/30" },
   unsplash:        { label: "Unsplash",     className: "bg-teal-500/20 text-teal-300 border-teal-500/30" },
   scrape:          { label: "Scraped",      className: "bg-rose-500/20 text-rose-300 border-rose-500/30" },
@@ -63,7 +63,7 @@ function SourceBadges({ asset, workflow }: { asset: AssetDTO | undefined; workfl
   if (!asset) return null;
   const source = asset.origin.source as AssetSource;
   if (
-    source === "dalle3" &&
+    source === "ai" &&
     workflow === "stock_discovery" &&
     asset.origin.providerMeta
   ) {
@@ -72,13 +72,13 @@ function SourceBadges({ asset, workflow }: { asset: AssetDTO | undefined; workfl
       return (
         <>
           <Chip metaKey={originalSource} />
-          <Chip metaKey="dalle3_enhance" />
+          <Chip metaKey="ai_enhance" />
         </>
       );
     }
   }
-  if (source === "dalle3" && workflow === "ai_enhance") return <Chip metaKey="dalle3_enhance" />;
-  if (source === "dalle3") return <Chip metaKey="dalle3_generate" />;
+  if (source === "ai" && workflow === "ai_enhance") return <Chip metaKey="ai_enhance" />;
+  if (source === "ai") return <Chip metaKey="ai_generate" />;
   return <Chip metaKey={source} />;
 }
 
