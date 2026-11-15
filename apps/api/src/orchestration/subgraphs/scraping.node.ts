@@ -34,7 +34,8 @@ export const scrapingNode = defineNode("scraping", async (state, ctx) => {
       .slice(0, 15)
       .map((c, i) => `${i}: ${c.url} (${c.providerMeta?.alt ?? "no alt"})`)
       .join("\n");
-    const { value, usage } = await ctx.services.languageModel.completeJson<{
+    const lm = ctx.nodeAdapters?.planner?.languageModel ?? ctx.services.languageModel;
+    const { value, usage } = await lm.completeJson<{
       index: number;
     }>({
       system:

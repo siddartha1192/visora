@@ -98,7 +98,7 @@ export interface AdminMe {
 export interface LlmConfig {
   id: string;
   label: string;
-  provider: "openai" | "anthropic" | "google";
+  provider: "openai" | "google";
   apiKeyMasked: string;
   chatModel: string | null;
   imageModel: string | null;

@@ -49,7 +49,7 @@ export const enhancementNode = defineNode("enhancement", async (state, ctx) => {
     width: edited.width,
     height: edited.height,
     kind: "enhanced",
-    source: "dalle3",
+    source: "ai",
     origin: { prompt: instructions, sourceUrl: source.s3.key },
   });
 

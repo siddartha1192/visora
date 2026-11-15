@@ -9,7 +9,7 @@
 
 ### 1.1 Guiding Principles
 - **Decoupled by layer:** HTTP (routes/controllers) → orchestration (LangGraph) → domain services (provider-agnostic) → integration adapters (OpenAI, Cloudinary, S3, Pexels). No layer reaches past its neighbor.
-- **Provider abstraction:** Every third-party capability sits behind an interface (`ImageGenerator`, `MediaOptimizer`, `StockProvider`, `ObjectStore`, `Publisher`). Swapping DALL·E 3 for Stability, or Cloudinary for ImageKit, is a one-file adapter change — the graph never knows.
+- **Provider abstraction:** Every third-party capability sits behind an interface (`ImageGenerator`, `MediaOptimizer`, `StockProvider`, `ObjectStore`, `Publisher`). Swapping gpt-image-* for Stability, or Cloudinary for ImageKit, is a one-file adapter change — the graph never knows.
 - **The graph is the brain, services are the hands:** LangGraph nodes contain *control flow and state transitions only*. They call injected services; they never `import openai` directly.
 - **Everything async & resumable:** A scheduled post and an instant post hit the *same* graph; the only difference is *when* the worker dequeues it. State is persisted so a crashed run resumes from its last checkpoint.
 
@@ -40,7 +40,7 @@
                 └───┬───────────┬───────────┬───────────┬──────┘
                     ▼           ▼           ▼           ▼
                  OpenAI     Cloudinary   AWS S3    Pexels/Unsplash
-                (DALL·E 3)  (resize)    (assets)   Scraper(Playwright)
+                (gpt-image-*)  (resize)    (assets)   Scraper(Playwright)
                     │
                     ▼
                 MongoDB  ◀── Users · Posts · AgentLogs · Jobs · Assets
@@ -109,7 +109,7 @@ Asset {
   workspaceId
   kind: 'upload'|'ai_generated'|'stock'|'scraped'|'enhanced'
   origin: {
-    source: 'user'|'dalle3'|'pexels'|'unsplash'|'scrape',
+    source: 'user'|'ai'|'pexels'|'unsplash'|'scrape',
     sourceUrl?, prompt?, providerMeta?
   }
   s3: { bucket, key, region }

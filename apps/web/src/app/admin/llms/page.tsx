@@ -8,13 +8,11 @@ import { cn } from "@/lib/utils";
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
   { value: "google", label: "Google" },
 ] as const;
 
 const PROVIDER_COLORS: Record<string, string> = {
   openai:    "bg-emerald-500/15 text-emerald-400",
-  anthropic: "bg-orange-500/15 text-orange-400",
   google:    "bg-blue-500/15 text-blue-400",
 };
 
@@ -23,7 +21,7 @@ const PROVIDER_COLORS: Record<string, string> = {
 function AddLlmModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [label, setLabel] = useState("");
-  const [provider, setProvider] = useState<"openai" | "anthropic" | "google">("openai");
+  const [provider, setProvider] = useState<"openai" | "google">("openai");
   const [apiKey, setApiKey] = useState("");
   const [chatModel, setChatModel] = useState("");
   const [imageModel, setImageModel] = useState("");

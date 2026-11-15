@@ -224,6 +224,14 @@ export class OpenAILanguageModel implements LanguageModel {
     text: string;
     usage: UsageMeta;
   }> {
+    return this.chat(args, false);
+  }
+
+  /** `json` turns on native JSON mode (the prompt must mention JSON — completeJson's does). */
+  private async chat(
+    args: { system: string; user: string },
+    json: boolean,
+  ): Promise<{ text: string; usage: UsageMeta }> {
     try {
       const res = await withRetry(
         () =>
@@ -233,6 +241,7 @@ export class OpenAILanguageModel implements LanguageModel {
               { role: "system", content: args.system },
               { role: "user", content: args.user },
             ],
+            ...(json ? { response_format: { type: "json_object" as const } } : {}),
           }),
         { label: "openai.chat" },
       );
@@ -258,10 +267,13 @@ export class OpenAILanguageModel implements LanguageModel {
     user: string;
     schemaHint: string;
   }): Promise<{ value: T; usage: UsageMeta }> {
-    const { text, usage } = await this.complete({
-      system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
-      user: args.user,
-    });
+    const { text, usage } = await this.chat(
+      {
+        system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
+        user: args.user,
+      },
+      true,
+    );
     try {
       const cleaned = text.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
       return { value: JSON.parse(cleaned) as T, usage };

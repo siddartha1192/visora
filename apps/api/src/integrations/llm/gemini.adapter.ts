@@ -139,10 +139,18 @@ export class GeminiLanguageModel implements LanguageModel {
     text: string;
     usage: UsageMeta;
   }> {
+    return this.chat(args, false);
+  }
+
+  private async chat(
+    args: { system: string; user: string },
+    json: boolean,
+  ): Promise<{ text: string; usage: UsageMeta }> {
     try {
       const model = this.client.getGenerativeModel({
         model: this.chatModel,
         systemInstruction: args.system,
+        ...(json ? { generationConfig: { responseMimeType: "application/json" } } : {}),
       });
       const result = await model.generateContent(args.user);
       return {
@@ -164,10 +172,13 @@ export class GeminiLanguageModel implements LanguageModel {
     user: string;
     schemaHint: string;
   }): Promise<{ value: T; usage: UsageMeta }> {
-    const { text, usage } = await this.complete({
-      system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
-      user: args.user,
-    });
+    const { text, usage } = await this.chat(
+      {
+        system: `${args.system}\nRespond with ONLY valid JSON matching: ${args.schemaHint}`,
+        user: args.user,
+      },
+      true,
+    );
     try {
       const cleaned = text.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
       return { value: JSON.parse(cleaned) as T, usage };

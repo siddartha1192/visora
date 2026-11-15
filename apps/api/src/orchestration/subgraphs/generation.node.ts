@@ -82,7 +82,7 @@ export const generationNode = defineNode("generation", async (state, ctx) => {
     width: image.width,
     height: image.height,
     kind: "ai_generated",
-    source: "dalle3",
+    source: "ai",
     origin: { prompt: image.revisedPrompt ?? finalPrompt },
   });
 

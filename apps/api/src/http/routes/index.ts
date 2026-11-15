@@ -401,7 +401,7 @@ export async function registerRoutes(app: FastifyInstance) {
             required: ["label", "provider", "apiKey"],
             properties: {
               label: { type: "string", minLength: 1, maxLength: 120 },
-              provider: { type: "string", enum: ["openai", "anthropic", "google"] },
+              provider: { type: "string", enum: ["openai", "google"] },
               apiKey: { type: "string", minLength: 1 },
               chatModel: { type: "string" },
               imageModel: { type: "string" },
@@ -819,7 +819,7 @@ Connect with: \`EventSource\` (browser) or any SSE client. Pass the Bearer token
             type: "object", required: ["label", "provider", "apiKey"],
             properties: {
               label: { type: "string" },
-              provider: { type: "string", enum: ["openai", "anthropic", "google"] },
+              provider: { type: "string", enum: ["openai", "google"] },
               apiKey: { type: "string" },
               chatModel: { type: "string" },
               imageModel: { type: "string" },
