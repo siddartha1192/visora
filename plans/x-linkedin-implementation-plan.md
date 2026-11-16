@@ -1,8 +1,9 @@
 # X (Twitter) and LinkedIn Connect: Implementation Plan
 
-Engineering companion to [social-integration-x-linkedin.md](social-integration-x-linkedin.md), which covers the
-"what and why" for each platform. This file is the "how" for the Visora codebase: exact files, functions,
-data shapes, order of work, and tests. Nothing here is implemented yet.
+Engineering guide for adding X and LinkedIn "click to connect" to Visora: exact files, functions, data shapes,
+order of work, and tests. The manual (non-coding) setup steps for each platform are in
+[Visora_X_LinkedIn_Manual_Setup_Steps.pdf](Visora_X_LinkedIn_Manual_Setup_Steps.pdf). Nothing here is
+implemented yet.
 
 > Platform facts (endpoints, scopes, token lifetimes, API versions) were checked in Nov 2026. Re-check
 > docs.x.com and learn.microsoft.com/linkedin when you start each phase.
